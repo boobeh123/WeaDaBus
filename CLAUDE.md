@@ -18,8 +18,8 @@ Features are built one at a time, in this order:
 1. Stop arrivals page (`/stops/:stopId`). Done.
 2. The map, in four steps:
    - 2a. GTFS import and models, plus stop names on the stop page. Done.
-   - 2b. A full-screen Leaflet map of Oʻahu with a bottom tab bar (Nearby · Routes · Search), stop pins for the visible area, and a bottom sheet of live arrivals when a pin is tapped.
-   - 2c. Routes: the route line is solid for the selected direction and dotted and faded for the return, with a direction toggle labeled by headsign, stop pins, and live buses that glide to each new position.
+   - 2b. A full-screen Leaflet map of Oʻahu with a bottom tab bar (Nearby · Search), stop pins for the visible area, "Show stops near me", and a sheet of live arrivals when a pin is tapped. Done.
+   - 2c. Routes: add the Routes tab. The route line is solid for the selected direction and dotted and faded for the return, with a direction toggle labeled by headsign, stop pins, and live buses that glide to each new position.
    - 2d. Search by stop name, route, or stop number.
 3. Accounts and saved stops ("My Stops"), using Passport. The map, route browsing, and search must keep working without login.
 4. On-time reliability tracker. Poll a chosen set of stops and store the results in MongoDB.
@@ -28,21 +28,33 @@ Email and push alerts are out of scope. Sessions and Passport aren't installed u
 
 ### Design
 
-The app is mobile-first, because most riders check it on a phone while waiting at a stop. Base CSS targets phones, and `min-width` media queries add the desktop layout. Tap targets are at least 44px, key actions sit within thumb reach (the sticky refresh bar, and the bottom tab bar to come), and the first view is rendered on the server so arrivals appear on slow connections before any JS runs. Colors, type sizes, and spacing are custom properties on `:root` in `public/css/styles.css`. Dark mode only redefines those properties.
+The app is mobile-first, because most riders check it on a phone while waiting at a stop. Base CSS targets phones, and `min-width` media queries add the desktop layout. Key actions sit within thumb reach: the fixed bottom tab bar, the sticky refresh bar just above it, and the map's "Show stops near me" button. Tap targets are at least 44px. Map pins are the exception at 32px, which still meets WCAG AA's 24px, because pins crowd at street level. The first view of content pages is rendered on the server, so arrivals appear on slow connections before any JS runs.
+
+Colors, type sizes, and spacing are custom properties on `:root` in `public/css/styles.css`. Dark mode only redefines those properties, and it also inverts the OpenStreetMap tiles.
+
+At 48rem and wider, the tab bar becomes the top navigation and replaces the site header, and the map sheet docks as a side panel.
 
 ## Architecture
 
 - **Two data sources.** GTFS is the static map: stops, routes, and route lines. It is imported into MongoDB. The TheBus API is the live layer: arrivals and vehicle positions. Live data is never stored, except for the Feature 4 snapshots.
 - **Models** (`model/`), all written only by `scripts/importGtfs.js`:
-  - `Stop`: keyed by `stopId`, the number on the sign. It has a GeoJSON `location` with a 2dsphere index and the display names of the routes that serve it.
+  - `Stop`: keyed by `stopId`, the number on the sign. It has a GeoJSON `location` with a 2dsphere index, the display names of the routes that serve it, and `isRailStation` for Skyline stations.
   - `Route`: `shortName` is what riders see, and `apiName` is how the arrivals endpoint names the route.
   - `RoutePattern`: one per route + direction + shape. It holds the `path` LineString drawn on the map, the ordered `stopIds`, and a `tripCount`.
 - **The import** parses everything in memory (two streaming passes over the 74 MB `stop_times.txt`) before touching the database. It then deletes and re-inserts each collection and syncs its indexes. `scripts/` is an addition to the standard MVC layout.
 - **`services/theBus.js` is the only code that calls TheBus.** It fetches and parses the XML and turns each arrival into `{ id, route, headsign, direction, time, minutesAway, status, statusLabel }`. It keeps only arrivals in the next 2 hours and caches each stop for 30 seconds. The cache stores the promise, so simultaneous requests for one stop share one TheBus call. `services/` is an addition to the standard MVC layout, for external API clients.
 - **Stops are checked in MongoDB before TheBus is called.** The stop page, the stop-number form, and the arrivals API all do this. The API can't tell a nonexistent stop from one with no buses coming, and the check saves quota.
-- **Arrival cards are rendered in two places from the same data.** `GET /stops/:stopId` renders them on the server with `views/partials/arrivalCard.ejs`. `public/js/stopArrivals.js` polls `GET /api/stops/:stopId/arrivals` every 60 seconds (pausing while the tab is hidden) and fills clones of a `<template>` rendered from that same partial. If you change the card markup, keep the class names the JS fills in sync.
+- **Arrival cards come from one partial, rendered in three places.** `views/partials/arrivalCard.ejs` renders them on the server for `GET /stops/:stopId`, and also renders an empty copy inside a `<template>` on the stop page and the map. `public/js/arrivals.js` fills clones of that template and provides `createArrivalsPoller`. The poller calls `GET /api/stops/:stopId/arrivals` every 60 seconds; each page pauses it while the tab is hidden and stops it when the stop is left. If you change the card markup, keep the class names in `buildArrivalCard` in sync.
+- **Client scripts are plain deferred scripts, not modules**, listed per page through `head.ejs`'s `scripts` local. They share one global scope: `arrivals.js` defines globals used by `stopArrivals.js` and `mapView.js`, so top-level names must not collide across the scripts a page loads.
+- **The map** (`GET /`, `views/map.ejs`, `public/js/mapView.js`):
+  - Leaflet 1.9.4 is served from `node_modules` at `/vendor/leaflet`, so the CSP needs no script CDN. Only `img-src` allows `https://tile.openstreetmap.org`.
+  - Stop pins load from `GET /api/stops?west=&south=&east=&north=` once the map reaches zoom 16. The client diffs pins by `stopId`, so they don't flicker while panning.
+  - "Show stops near me" asks for location only when tapped, then calls `GET /api/stops/nearby?lat=&lon=` (`$geoNear`, 8 stops within 1 km).
+  - Both endpoints read only MongoDB and skip stops with no routes. Their validators reject coordinates outside a box around Oʻahu.
+  - Pins are Leaflet markers with `keyboard: true`, which makes them focusable buttons. Leaflet only turns Enter into a click for popups, so `mapView.js` handles Enter and Space itself.
+  - The OTS data credit is in the map's attribution and in the sheet, since the footer isn't shown on the map page.
 - **Failed TheBus calls don't reach the error handler.** The stop page shows a "TheBus isn't responding" message, and the API route returns a 502 with JSON.
-- **There are no sessions yet**, so an invalid or unknown stop number re-renders the home form with the message instead of flashing and redirecting.
+- **There are no sessions yet**, so an invalid or unknown stop number re-renders the Search page (`/search`) with the message instead of flashing and redirecting.
 
 ## TheBus API
 
