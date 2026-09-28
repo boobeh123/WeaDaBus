@@ -1,10 +1,11 @@
-<%- include('partials/head', { title, script: null }) %>
+<%- include('partials/head', { title }) %>
 <%- include('partials/header') %>
+<%- include('partials/tabBar') %>
 
 <main class="errorPage container">
   <h1><%= title %></h1>
   <p><%= message %></p>
-  <a class="button buttonPrimary" href="/">Look up a stop</a>
+  <a class="button buttonPrimary" href="/search">Look up a stop</a>
 </main>
 
 <%- include('partials/footer') %>
