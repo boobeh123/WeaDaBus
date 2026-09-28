@@ -1,0 +1,16 @@
+<%# Also rendered empty inside a <template> that public/js/stopArrivals.js clones, so keep its class names in sync %>
+<li class="arrivalCard" data-status="<%= arrival.status %>">
+  <span class="routeBadge"><span class="visuallyHidden">Route </span><span class="routeName"><%= arrival.route %></span></span>
+  <div class="arrivalDetails">
+    <p class="arrivalHeadsign"><%= arrival.headsign %></p>
+    <p class="arrivalMeta">
+      <span class="arrivalStatus"><%= arrival.statusLabel %></span>
+      <span class="arrivalTime"><%= arrival.time %></span>
+      <span class="arrivalDirection"><%= arrival.direction %></span>
+    </p>
+  </div>
+  <p class="arrivalMinutes">
+    <span class="minutesValue"><%= arrival.minutesAway <= 0 ? 'Now' : arrival.minutesAway %></span>
+    <span class="minutesUnit"<% if (arrival.minutesAway <= 0) { %> hidden<% } %>>min</span>
+  </p>
+</li>
