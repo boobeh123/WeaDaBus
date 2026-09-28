@@ -3,7 +3,7 @@
 
   <h3 align="center">Wea Da Bus</h3>
 
-  <p align="center">Hello world</p>
+  <p align="center">Deployed on Railway</p>
 
 ## About The Project
 
