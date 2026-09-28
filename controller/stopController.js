@@ -2,20 +2,23 @@ const { validationResult, matchedData } = require('express-validator');
 const Stop = require('../model/Stop');
 const theBus = require('../services/theBus');
 
-// GET /stops?stop=983: the home page form submits here
+// GET /stops?stop=983: the Search tab's form submits here
 exports.getStopSearch = async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     // No sessions yet, so re-render the form with the message instead of flashing and redirecting
-    return res.status(400).render('home', { title: null, error: errors.array()[0].msg });
+    return res
+      .status(400)
+      .render('search', { title: 'Search', activeTab: 'search', error: errors.array()[0].msg });
   }
 
   const { stop } = matchedData(req);
 
   // Catch a mistyped number here, while the rider is still on the form
   if (!(await Stop.exists({ stopId: stop }))) {
-    return res.status(404).render('home', {
-      title: null,
+    return res.status(404).render('search', {
+      title: 'Search',
+      activeTab: 'search',
       error: `We couldn't find stop ${stop}. Check the number on the bus stop sign.`,
     });
   }
