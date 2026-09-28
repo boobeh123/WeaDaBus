@@ -11,6 +11,7 @@ const StopSchema = new mongoose.Schema({
   },
   // Every route that serves this stop, e.g. ['1', '2', '32', 'A LINE']
   routes: { type: [String], default: [] },
+  isRailStation: { type: Boolean, default: false }, // Served by Skyline
 });
 
 StopSchema.index({ location: '2dsphere' });
