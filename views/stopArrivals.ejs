@@ -1,0 +1,49 @@
+<%- include('partials/head', { title, script: '/js/stopArrivals.js' }) %>
+<%- include('partials/header') %>
+
+<%
+  const arrivals = stop ? stop.arrivals : [];
+  const blankArrival = { route: '', headsign: '', direction: '', time: '', minutesAway: 0, status: '', statusLabel: '' };
+%>
+
+<main class="stopArrivals container" data-stop-id="<%= stopId %>">
+  <header class="stopHeader">
+    <div class="stopHeaderRow">
+      <p class="stopNumber">Stop <%= stopId %></p>
+      <a class="changeStopLink" href="/">Change stop</a>
+    </div>
+    <h1 class="stopTitle"><%= stopName %></h1>
+    <p class="stopSubtitle">Buses in the next 2 hours</p>
+  </header>
+
+  <ol class="arrivalList"<% if (arrivals.length === 0) { %> hidden<% } %>>
+    <% arrivals.forEach((arrival) => { %>
+    <%- include('partials/arrivalCard', { arrival }) %>
+    <% }) %>
+  </ol>
+
+  <section class="stopMessage emptyMessage"<% if (!stop || arrivals.length > 0) { %> hidden<% } %>>
+    <h2>No buses in the next 2 hours</h2>
+    <p>Service at this stop may be done for the day.</p>
+    <a href="/">Look up another stop</a>
+  </section>
+
+  <section class="stopMessage unavailableMessage"<% if (stop) { %> hidden<% } %>>
+    <h2>TheBus isn't responding</h2>
+    <p>Arrival times aren't available right now. Try refreshing in a minute.</p>
+  </section>
+
+  <template class="arrivalTemplate">
+    <%- include('partials/arrivalCard', { arrival: blankArrival }) %>
+  </template>
+
+  <div class="refreshBar">
+    <p class="updatedTime" data-updated-at="<%= stop ? stop.updatedAt : '' %>">
+      <%= stop ? `Updated ${stop.updatedAt}` : 'Not updated' %>
+    </p>
+    <a class="button buttonSecondary refreshButton" href="/stops/<%= stopId %>">Refresh</a>
+    <p class="visuallyHidden statusAnnouncer" role="status"></p>
+  </div>
+</main>
+
+<%- include('partials/footer') %>
