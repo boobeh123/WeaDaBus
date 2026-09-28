@@ -4,19 +4,71 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-A static HTML/CSS/JS site that will show real-time bus data from TheBus (Oahu Transit Services) Web API. It is an early scaffold: `index.html` is a placeholder page, and `public/css/styles.css` and `public/js/main.js` are empty.
+Wea Da Bus is a mobile-first web app that shows live arrival times from TheBus (Oahu Transit Services). It is an Express 5 + EJS + MongoDB (Mongoose) app deployed on Railway.
 
-There is no `package.json`, build step, linter, or test suite. `index.html` loads its stylesheet with a root-absolute path (`/public/css/styles.css`), so preview it through a static server rooted at the repo, not by opening the file directly.
+- `npm run dev` runs the server with `node --watch` on http://localhost:3000. `npm start` runs it without watching.
+- `npm run import:gtfs` downloads TheBus's GTFS schedule and replaces the `stops`, `routes`, and `routepatterns` collections. Re-run it when TheBus publishes a new feed. The script prints the current feed's end date.
+- `.env` needs `WEBSERVICESKEY` (the TheBus API key) and `DB_STRING` (MongoDB). The server exits at startup if either is missing or the database connection fails. `.env.example` lists every variable.
+- There is no build step, linter, or test suite.
+
+### Build order
+
+Features are built one at a time, in this order:
+
+1. Stop arrivals page (`/stops/:stopId`). Done.
+2. The map, in four steps:
+   - 2a. GTFS import and models, plus stop names on the stop page. Done.
+   - 2b. A full-screen Leaflet map of Oʻahu with a bottom tab bar (Nearby · Routes · Search), stop pins for the visible area, and a bottom sheet of live arrivals when a pin is tapped.
+   - 2c. Routes: the route line is solid for the selected direction and dotted and faded for the return, with a direction toggle labeled by headsign, stop pins, and live buses that glide to each new position.
+   - 2d. Search by stop name, route, or stop number.
+3. Accounts and saved stops ("My Stops"), using Passport. The map, route browsing, and search must keep working without login.
+4. On-time reliability tracker. Poll a chosen set of stops and store the results in MongoDB.
+
+Email and push alerts are out of scope. Sessions and Passport aren't installed until Feature 3.
+
+### Design
+
+The app is mobile-first, because most riders check it on a phone while waiting at a stop. Base CSS targets phones, and `min-width` media queries add the desktop layout. Tap targets are at least 44px, key actions sit within thumb reach (the sticky refresh bar, and the bottom tab bar to come), and the first view is rendered on the server so arrivals appear on slow connections before any JS runs. Colors, type sizes, and spacing are custom properties on `:root` in `public/css/styles.css`. Dark mode only redefines those properties.
+
+## Architecture
+
+- **Two data sources.** GTFS is the static map: stops, routes, and route lines. It is imported into MongoDB. The TheBus API is the live layer: arrivals and vehicle positions. Live data is never stored, except for the Feature 4 snapshots.
+- **Models** (`model/`), all written only by `scripts/importGtfs.js`:
+  - `Stop`: keyed by `stopId`, the number on the sign. It has a GeoJSON `location` with a 2dsphere index and the display names of the routes that serve it.
+  - `Route`: `shortName` is what riders see, and `apiName` is how the arrivals endpoint names the route.
+  - `RoutePattern`: one per route + direction + shape. It holds the `path` LineString drawn on the map, the ordered `stopIds`, and a `tripCount`.
+- **The import** parses everything in memory (two streaming passes over the 74 MB `stop_times.txt`) before touching the database. It then deletes and re-inserts each collection and syncs its indexes. `scripts/` is an addition to the standard MVC layout.
+- **`services/theBus.js` is the only code that calls TheBus.** It fetches and parses the XML and turns each arrival into `{ id, route, headsign, direction, time, minutesAway, status, statusLabel }`. It keeps only arrivals in the next 2 hours and caches each stop for 30 seconds. The cache stores the promise, so simultaneous requests for one stop share one TheBus call. `services/` is an addition to the standard MVC layout, for external API clients.
+- **Stops are checked in MongoDB before TheBus is called.** The stop page, the stop-number form, and the arrivals API all do this. The API can't tell a nonexistent stop from one with no buses coming, and the check saves quota.
+- **Arrival cards are rendered in two places from the same data.** `GET /stops/:stopId` renders them on the server with `views/partials/arrivalCard.ejs`. `public/js/stopArrivals.js` polls `GET /api/stops/:stopId/arrivals` every 60 seconds (pausing while the tab is hidden) and fills clones of a `<template>` rendered from that same partial. If you change the card markup, keep the class names the JS fills in sync.
+- **Failed TheBus calls don't reach the error handler.** The stop page shows a "TheBus isn't responding" message, and the API route returns a 502 with JSON.
+- **There are no sessions yet**, so an invalid or unknown stop number re-renders the home form with the message instead of flashing and redirecting.
 
 ## TheBus API
 
-`WebServicesAPI.md` is the OTS API reference (v1.11), taken from https://hea.thebus.org/api_info.asp. It is text extracted from a PDF, so the repeated "Web API" and page-number lines are noise. Read it before writing code that calls the API. These points affect the design:
+`WebServicesAPI.md` is the OTS API reference (v1.11), taken from https://hea.thebus.org/api_info.asp. It is gitignored, so it only exists in local copies. It is text extracted from a PDF, so the repeated "Web API" and page-number lines are noise. The points below come from the doc and from live responses:
 
-- There are three read-only GET endpoints under `http://api.thebus.org/`: `arrivals/?key=&stop=`, `vehicle/?key=&num=`, and `route/?key=&route=` or `route/?key=&headsign=`.
-- Responses are XML, not JSON. Processing errors come back in an `errorMessage` element in the response body, so check for that element.
-- Every request needs the AppID as `key`. Keep it in `.env` (gitignored) and never ship it in client-side JS, because anyone who has the key can use up its quota.
-- The documented base URLs are `http://` only. Browsers block requests from an HTTPS page (Netlify) to `http://` URLs as mixed content. Because of this and the key rule, API calls must go through a server-side proxy.
-- Each AppID is limited to 250,000 requests a day and is deleted after 6 months of inactivity. Bus positions update about once a minute and can be 2 or more minutes stale, so polling more than once a minute gains nothing.
-- The Terms of Use require the legend "Route and arrival data provided by permission of Oahu Transit Services, Inc" to be displayed prominently wherever the data appears. Using the marks "OTS" or "HEA" also requires the asterisk trademark notice quoted in the doc.
-- Some fields are easy to misread. For `vehicle:adherence`, positive means early and negative means late. `arrival:estimated` is 1 for a GPS estimate and 0 for scheduled only. `arrival:canceled` is 0 for active, 1 for canceled, and -1 for canceled and then reinstated.
-- The doc's DTD schemas disagree with its field lists. For example, the arrivals DTD lists `scheduled` and omits `stopTime`, and the routes DTD uses `routeId` and `shapeDescription` where the field list says `routeID` and `firstStop`. Trust the field lists and real responses over the DTDs.
+- **Endpoints.** There are three read-only GET endpoints: `arrivals/?key=&stop=`, `vehicle/?key=&num=`, and `route/?key=&route=` or `route/?key=&headsign=`. The doc only shows `http://` URLs, but `https://api.thebus.org` works, so use HTTPS.
+- **Format and errors.** Responses are XML encoded as ISO-8859-1, not UTF-8. Errors such as a bad key come back as HTTP 200 with an `<errorMessage>` element.
+- **The key stays on the server** even though the API allows cross-origin requests (`Access-Control-Allow-Origin: *`), because anyone who has it can use up its quota.
+- **Times are Hawaii local time with no time zone.** The response timestamp looks like `9/27/2026 8:16:56 PM`. Each arrival has `<stopTime>8:36 PM</stopTime>` and `<date>9/27/2026</date>`. The tag is lowercase `date`, not `Date` as documented. Calculate minutes against the response timestamp, never the server clock, because Railway runs on UTC.
+- **Arrivals always returns the next 25 trips.** At a busy stop they cover about 90 minutes, but at a single-route stop late at night they reach into the next morning. Skyline stations are covered too, with route `SKYLINE`, and every rail arrival is scheduled only.
+- **`estimated`** is `1` for a GPS estimate. `0`, and the undocumented `2`, mean the time is scheduled only. With `2`, `vehicle` is `???` and the latitude and longitude are `0`.
+- **Empty arrivals are ambiguous.** A stop with nothing coming and a stop number that doesn't exist look the same: only `stop` and `timestamp`, with no `<arrival>` elements and no error.
+- **Vehicles.** `vehicle/` with no `num` returns every vehicle, about 1,187 of them (344 KB). That includes parked buses, which have `trip` of `null_trip`, `route_short_name` of `null`, and an old `last_message`. `driver` changes between calls for the same bus, so never use or show it.
+- **The route endpoint is of little use.** It returns only each variant's first stop, with no coordinates. `headsign=` searches return an HTML 500 page, `route=A` returns nothing, and there is no "list all" option. Use the GTFS data instead.
+- **Names.** Route names are strings made of letters, numbers, or both (`A`, `2`, `307`, `W1`). Headsigns and stop names are all caps and are displayed as-is, because converting them to mixed case would mangle abbreviations like `U.H.` and `HNL`.
+- **Limits.** Each key is limited to 250,000 requests a day and is deleted after 6 months of inactivity. Bus positions update about once a minute and can be 2 or more minutes stale.
+- **Attribution.** The Terms of Use require the legend "Route and arrival data provided by permission of Oahu Transit Services, Inc" to be displayed prominently wherever the data appears. It is in the site footer. Using the marks "OTS" or "HEA" also requires the asterisk trademark notice quoted in the doc.
+- **Easy to misread.** In `vehicle:adherence`, positive means early and negative means late. `arrival:canceled` is `0` for active, `1` for canceled, and `-1` for canceled and then reinstated.
+- **The doc's DTD schemas disagree with its field lists.** For example, the arrivals DTD lists `scheduled` and omits `stopTime`, and the routes DTD uses `routeId` and `shapeDescription` where the field list says `routeID` and `firstStop`. Trust live responses first, then the field lists.
+
+## GTFS feed
+
+The feed is https://www.thebus.org/transitdata/production/google_transit.zip: about 12 MB zipped, covering bus and Skyline rail. Its CSV files have no quoted fields.
+
+- **Stop IDs.** `stop_code` is the number on the sign and the number the arrivals endpoint takes. Nine stops appear twice, once as `151` and once as `151_merge`, a few meters apart. The import merges each pair into one `Stop`, and the plain ID's location wins.
+- **Route names.** Arrivals call `A LINE`, `U LINE`, and `W LINE` just `A`, `U`, and `W`. Skyline has no short name, and arrivals call it `SKYLINE`. `Route.apiName` holds the arrivals name.
+- **Live data links to GTFS.** An arrival's `<shape>` matches `RoutePattern.shapeId`, and a vehicle's `<trip>` matches a GTFS `trip_id`.
+- **Directions and patterns.** All 118 routes have two directions. A direction can have several patterns, some nearly identical, like route 2's `20423_merge` and `20441`. When showing one line per direction, use the pattern with the highest `tripCount`.
+- **Unserved stops.** Three stops have no routes, such as `32003 KALIHI FACILITY GARAGE`. Leave them out of rider-facing lists.
