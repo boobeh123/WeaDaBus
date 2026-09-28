@@ -1,0 +1,24 @@
+<%# Bottom tab bar on phones, top navigation on wider screens. activeTab marks the current page. %>
+<nav class="tabBar" aria-label="Main">
+  <a class="tabBarBrand" href="/">Wea Da Bus</a>
+  <ul class="tabList">
+    <li>
+      <a class="tabLink" href="/"<% if (locals.activeTab === 'nearby') { %> aria-current="page"<% } %>>
+        <svg class="tabIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/>
+          <circle cx="12" cy="10" r="2.5"/>
+        </svg>
+        <span class="tabLabel">Nearby</span>
+      </a>
+    </li>
+    <li>
+      <a class="tabLink" href="/search"<% if (locals.activeTab === 'search') { %> aria-current="page"<% } %>>
+        <svg class="tabIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="11" cy="11" r="6.5"/>
+          <path d="m20 20-4.35-4.35"/>
+        </svg>
+        <span class="tabLabel">Search</span>
+      </a>
+    </li>
+  </ul>
+</nav>
