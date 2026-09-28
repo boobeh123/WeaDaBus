@@ -1,5 +1,6 @@
-<%- include('partials/head', { title, script: '/js/stopArrivals.js' }) %>
+<%- include('partials/head', { title, scripts: ['/js/arrivals.js', '/js/stopArrivals.js'] }) %>
 <%- include('partials/header') %>
+<%- include('partials/tabBar') %>
 
 <%
   const arrivals = stop ? stop.arrivals : [];
@@ -10,7 +11,7 @@
   <header class="stopHeader">
     <div class="stopHeaderRow">
       <p class="stopNumber">Stop <%= stopId %></p>
-      <a class="changeStopLink" href="/">Change stop</a>
+      <a class="changeStopLink" href="/search">Change stop</a>
     </div>
     <h1 class="stopTitle"><%= stopName %></h1>
     <p class="stopSubtitle">Buses in the next 2 hours</p>
@@ -25,7 +26,7 @@
   <section class="stopMessage emptyMessage"<% if (!stop || arrivals.length > 0) { %> hidden<% } %>>
     <h2>No buses in the next 2 hours</h2>
     <p>Service at this stop may be done for the day.</p>
-    <a href="/">Look up another stop</a>
+    <a href="/search">Look up another stop</a>
   </section>
 
   <section class="stopMessage unavailableMessage"<% if (stop) { %> hidden<% } %>>
