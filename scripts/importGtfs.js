@@ -274,6 +274,7 @@ async function importGtfs() {
     routes: [...routeIds]
       .map((routeId) => getRouteDisplayName(routes.get(routeId)))
       .sort(compareRouteNames),
+    isRailStation: [...routeIds].some((routeId) => routes.get(routeId).mode === 'rail'),
   }));
 
   const routeDocs = [...routes.values()];
