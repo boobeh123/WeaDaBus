@@ -1,0 +1,33 @@
+<%- include('partials/head', { title }) %>
+<%- include('partials/header') %>
+<%- include('partials/tabBar') %>
+
+<main class="searchPage container">
+  <h1 class="searchTitle">When's the next bus?</h1>
+  <p class="searchIntro">Live TheBus arrival times for any stop on Oʻahu.</p>
+
+  <form class="stopForm" action="/stops" method="get">
+    <label class="formLabel" for="stopInput">Stop number</label>
+    <p class="formHint" id="stopHint">It's on the sign at your bus stop.</p>
+    <input
+      class="textInput stopInput"
+      id="stopInput"
+      name="stop"
+      type="text"
+      inputmode="numeric"
+      pattern="[0-9]*"
+      maxlength="5"
+      autocomplete="off"
+      enterkeyhint="go"
+      required
+      aria-describedby="stopHint<% if (error) { %> stopError<% } %>"
+      <% if (error) { %>aria-invalid="true"<% } %>
+    >
+    <% if (error) { %>
+    <p class="formError" id="stopError"><%= error %></p>
+    <% } %>
+    <button class="button buttonPrimary" type="submit">Show arrivals</button>
+  </form>
+</main>
+
+<%- include('partials/footer') %>
