@@ -1,0 +1,86 @@
+<%- include('partials/head', {
+  title,
+  bodyClass: 'mapBody',
+  styles: ['/vendor/leaflet/leaflet.css'],
+  scripts: ['/vendor/leaflet/leaflet.js', '/js/arrivals.js', '/js/mapView.js'],
+}) %>
+<%- include('partials/tabBar') %>
+
+<%
+  const blankArrival = { route: '', headsign: '', direction: '', time: '', minutesAway: 0, status: '', statusLabel: '' };
+%>
+
+<main class="mapPage">
+  <h1 class="visuallyHidden">Bus stops on Oʻahu</h1>
+
+  <div class="map" role="region" aria-label="Map of Oʻahu bus stops"></div>
+
+  <noscript>
+    <p class="mapNotice">The map needs JavaScript. <a href="/search">Look up a stop by number</a> instead.</p>
+  </noscript>
+
+  <p class="mapNotice zoomHint" hidden>Zoom in to see bus stops</p>
+  <p class="mapNotice mapMessage" role="status"></p>
+
+  <button class="button buttonPrimary locateButton" type="button">
+    <svg class="buttonIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="4"/>
+      <path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>
+    </svg>
+    <span class="locateLabel">Show stops near me</span>
+  </button>
+
+  <%# One sheet, two views: the list of nearby stops, or one stop's live arrivals %>
+  <section class="mapSheet" aria-labelledby="sheetTitle" hidden>
+    <div class="sheetHeader">
+      <button class="sheetBack" type="button" hidden>
+        <svg class="buttonIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="m15 18-6-6 6-6"/>
+        </svg>
+        Nearby stops
+      </button>
+      <div class="sheetHeading">
+        <p class="sheetEyebrow"></p>
+        <h2 class="sheetTitle" id="sheetTitle" tabindex="-1"></h2>
+      </div>
+      <button class="sheetClose" type="button" aria-label="Close">
+        <svg class="buttonIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+          <path d="M6 6l12 12M18 6 6 18"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="sheetBody">
+      <div class="sheetNearby" hidden>
+        <ul class="nearbyList"></ul>
+        <p class="sheetNote nearbyEmpty" hidden>No bus stops within 1 km of you.</p>
+      </div>
+
+      <div class="sheetStop" hidden>
+        <p class="sheetRoutes"></p>
+        <p class="sheetUpdated">Loading arrivals…</p>
+        <ol class="arrivalList" hidden></ol>
+        <p class="sheetNote emptyMessage" hidden>No buses in the next 2 hours. Service at this stop may be done for the day.</p>
+        <p class="sheetNote unavailableMessage" hidden>TheBus isn't responding. We'll try again in a minute.</p>
+        <a class="button buttonSecondary sheetStopLink" href="/search">Open stop page</a>
+      </div>
+
+      <p class="attribution">Route and arrival data provided by permission of Oahu Transit Services, Inc</p>
+    </div>
+
+    <template class="arrivalTemplate">
+      <%- include('partials/arrivalCard', { arrival: blankArrival }) %>
+    </template>
+
+    <template class="nearbyTemplate">
+      <li>
+        <button class="nearbyStop" type="button">
+          <span class="nearbyName"></span>
+          <span class="nearbyMeta"></span>
+        </button>
+      </li>
+    </template>
+  </section>
+</main>
+</body>
+</html>
