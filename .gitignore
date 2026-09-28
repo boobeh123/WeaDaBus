@@ -1,5 +1,7 @@
 node_modules/
+config/.env
 .env
 .env.*
 !.env.example
 WebServicesAPI.md
+node_modules
