@@ -1,5 +1,6 @@
 require('dotenv').config(); // First: load .env before anything reads process.env
 
+const path = require('path');
 const express = require('express');
 const helmet = require('helmet');
 const morgan = require('morgan');
@@ -27,6 +28,7 @@ app.use(
   helmet({
     contentSecurityPolicy: {
       directives: {
+        imgSrc: ["'self'", 'data:', 'https://tile.openstreetmap.org'], // Allow OpenStreetMap map tiles
         upgradeInsecureRequests: isProduction ? [] : null, // Local dev runs on plain HTTP
       },
     },
@@ -40,8 +42,9 @@ app.use(morgan(isProduction ? 'combined' : 'dev'));
 app.use(express.urlencoded({ extended: false }));
 app.use(express.json());
 
-// 5. Static files
+// 5. Static files. Leaflet is served from our own origin, so the CSP needs no script CDN
 app.use(express.static('public'));
+app.use('/vendor/leaflet', express.static(path.join(__dirname, 'node_modules/leaflet/dist')));
 
 // 6. Routes
 app.use('/', require('./routes/homeRoutes'));
