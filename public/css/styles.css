@@ -17,6 +17,9 @@ Base
   --colorDanger: #b91c1c;
   --colorDangerBg: #fee2e2;
   --colorFocus: #b45309;
+  --colorRail: #142e57; /* Skyline's own color from the GTFS feed */
+  --colorYouAreHere: #2563eb;
+  --shadowRaised: 0 -2px 16px rgb(15 23 42 / 0.18);
 
   /* Type */
   --fontBody: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
@@ -38,6 +41,9 @@ Base
   --radiusPill: 999px;
   --tapTarget: 3rem;
   --contentWidth: 40rem;
+  --tabBarHeight: 3.75rem;
+  /* Space the fixed bottom tab bar takes, including the iPhone home indicator */
+  --bottomBarSpace: calc(var(--tabBarHeight) + env(safe-area-inset-bottom));
 }
 
 *,
@@ -57,6 +63,7 @@ body {
   min-height: 100vh;
   min-height: 100dvh;
   margin: 0;
+  padding-bottom: var(--bottomBarSpace); /* Keep content clear of the tab bar */
   background: var(--colorBg);
   color: var(--colorText);
   font-family: var(--fontBody);
@@ -147,6 +154,12 @@ Components
 .button[aria-disabled='true'] {
   opacity: 0.6;
   cursor: progress;
+}
+
+.buttonIcon {
+  flex-shrink: 0;
+  width: 1.25rem;
+  height: 1.25rem;
 }
 
 /* Form controls */
@@ -317,17 +330,72 @@ Header
 }
 
 /**************************************************************
-Home
+Tab bar
 ***************************************************************/
-.homePage {
+/* Fixed to the bottom on phones, within thumb reach. Becomes the top navigation on wider screens. */
+.tabBar {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 1100; /* Above Leaflet's map controls (1000) and the map sheet */
+  padding-bottom: env(safe-area-inset-bottom);
+  border-top: 1px solid var(--colorBorder);
+  background: var(--colorSurface);
+}
+
+.tabBarBrand {
+  display: none;
+}
+
+.tabList {
+  display: grid;
+  grid-auto-columns: 1fr;
+  grid-auto-flow: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tabLink {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spaceXs);
+  min-height: var(--tabBarHeight);
+  border-top: 3px solid transparent;
+  color: var(--colorTextMuted);
+  font-size: var(--fontSizeSm);
+  font-weight: 600;
+  line-height: 1;
+  text-decoration: none;
+}
+
+/* The current tab gets a bar as well as color, so it doesn't rely on color alone */
+.tabLink[aria-current='page'] {
+  border-top-color: var(--colorPrimary);
+  color: var(--colorPrimary);
+  font-weight: 800;
+}
+
+.tabIcon {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+/**************************************************************
+Search
+***************************************************************/
+.searchPage {
   padding-block: var(--spaceXl);
 }
 
-.homeTitle {
+.searchTitle {
   margin-bottom: var(--spaceSm);
 }
 
-.homeIntro {
+.searchIntro {
   margin-bottom: var(--spaceLg);
   color: var(--colorTextMuted);
 }
@@ -419,22 +487,268 @@ Stop arrivals
 /**************************************************************
 Refresh bar
 ***************************************************************/
-/* Sticks to the bottom of the screen so Refresh stays within thumb reach */
+/* Sticks just above the tab bar so Refresh stays within thumb reach */
 .refreshBar {
   position: sticky;
-  bottom: 0;
+  bottom: var(--bottomBarSpace);
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--spaceMd);
   margin-top: auto;
   margin-inline: calc(var(--spaceMd) * -1);
-  padding: var(--spaceSm) var(--spaceMd) calc(var(--spaceSm) + env(safe-area-inset-bottom));
+  padding: var(--spaceSm) var(--spaceMd);
   border-top: 1px solid var(--colorBorder);
   background: var(--colorSurface);
 }
 
 .updatedTime {
+  color: var(--colorTextMuted);
+  font-size: var(--fontSizeSm);
+}
+
+/**************************************************************
+Map
+***************************************************************/
+/* The map page fills the screen above the tab bar and never scrolls */
+.mapBody {
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+.mapPage {
+  position: relative;
+  min-height: 0;
+}
+
+.map {
+  position: absolute;
+  inset: 0;
+}
+
+.map.leaflet-container {
+  background: var(--colorBg);
+  font-family: var(--fontBody);
+}
+
+/* Floating notes over the map: the zoom hint, location messages, and the no-JS notice */
+.mapNotice {
+  position: absolute;
+  top: var(--spaceMd);
+  left: 50%;
+  z-index: 1001;
+  width: max-content;
+  max-width: calc(100% - 7rem); /* Clear of the zoom buttons */
+  padding: var(--spaceSm) var(--spaceMd);
+  border: 1px solid var(--colorBorder);
+  border-radius: var(--radiusMd);
+  background: var(--colorSurface);
+  color: var(--colorText);
+  font-size: var(--fontSizeSm);
+  font-weight: 600;
+  text-align: center;
+  transform: translateX(-50%);
+}
+
+.mapMessage {
+  top: calc(var(--spaceMd) * 4);
+}
+
+/* Invisible while empty, but still in the page so screen readers announce new messages */
+.mapMessage:empty {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Bottom center, within thumb reach, clear of the map credits */
+.locateButton {
+  position: absolute;
+  bottom: calc(var(--spaceXl) * 1.5);
+  left: 50%;
+  z-index: 1001;
+  gap: var(--spaceSm);
+  box-shadow: var(--shadowRaised);
+  white-space: nowrap;
+  transform: translateX(-50%);
+}
+
+/* Stop pins: the Leaflet marker is a 32px tap area around a smaller visible dot */
+.stopPin {
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+}
+
+.stopPin::before {
+  content: '';
+  width: 1rem;
+  height: 1rem;
+  border: 3px solid var(--colorSurface);
+  border-radius: 50%;
+  background: var(--colorPrimary);
+  box-shadow: 0 0 0 1px var(--colorPrimary);
+}
+
+/* Skyline stations are squares in Skyline's color, so they differ by shape as well as color */
+.railPin::before {
+  width: 1.125rem;
+  height: 1.125rem;
+  border-radius: 3px;
+  background: var(--colorRail);
+  box-shadow: 0 0 0 1px var(--colorRail);
+}
+
+.stopPin.isSelected::before {
+  width: 1.5rem;
+  height: 1.5rem;
+  border-width: 4px;
+  box-shadow: 0 0 0 3px var(--colorText);
+}
+
+.youAreHere {
+  border: 3px solid var(--colorSurface);
+  border-radius: 50%;
+  background: var(--colorYouAreHere);
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--colorYouAreHere) 30%, transparent);
+}
+
+/* The sheet rises from the bottom on phones and docks beside the map on wider screens */
+.mapSheet {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 1002;
+  display: flex;
+  flex-direction: column;
+  max-height: 60%;
+  border-top: 1px solid var(--colorBorder);
+  border-radius: var(--radiusMd) var(--radiusMd) 0 0;
+  background: var(--colorBg);
+  box-shadow: var(--shadowRaised);
+}
+
+.sheetHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  column-gap: var(--spaceSm);
+  padding: var(--spaceSm) var(--spaceMd);
+}
+
+.sheetBack {
+  display: inline-flex;
+  flex-basis: 100%;
+  align-items: center;
+  gap: var(--spaceXs);
+  min-height: var(--tapTarget);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--colorPrimary);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.sheetHeading {
+  flex: 1;
+  min-width: 0;
+  padding-top: var(--spaceSm);
+}
+
+.sheetEyebrow {
+  color: var(--colorTextMuted);
+  font-size: var(--fontSizeSm);
+  font-weight: 700;
+}
+
+.sheetTitle {
+  font-size: var(--fontSizeLg);
+  overflow-wrap: anywhere;
+}
+
+/* Focus lands here when the sheet opens so screen readers read the title; it isn't a control */
+.sheetTitle:focus {
+  outline: none;
+}
+
+.sheetClose {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: var(--tapTarget);
+  height: var(--tapTarget);
+  padding: 0;
+  border: 1px solid var(--colorBorder);
+  border-radius: 50%;
+  background: var(--colorSurface);
+  color: var(--colorText);
+  cursor: pointer;
+}
+
+.sheetBody {
+  display: grid;
+  gap: var(--spaceSm);
+  padding: 0 var(--spaceMd) var(--spaceMd);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.sheetNearby,
+.sheetStop {
+  display: grid;
+  gap: var(--spaceSm);
+}
+
+.sheetRoutes,
+.sheetUpdated,
+.sheetBody .attribution {
+  color: var(--colorTextMuted);
+  font-size: var(--fontSizeSm);
+}
+
+.sheetNote {
+  padding: var(--spaceMd);
+  border: 1px solid var(--colorBorder);
+  border-radius: var(--radiusMd);
+  background: var(--colorSurface);
+}
+
+.sheetStopLink {
+  width: 100%;
+}
+
+.nearbyList {
+  display: grid;
+  gap: var(--spaceSm);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.nearbyStop {
+  display: grid;
+  gap: var(--spaceXs);
+  width: 100%;
+  min-height: var(--tapTarget);
+  padding: var(--spaceMd);
+  border: 1px solid var(--colorBorder);
+  border-radius: var(--radiusMd);
+  background: var(--colorSurface);
+  color: var(--colorText);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.nearbyName {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.nearbyMeta {
   color: var(--colorTextMuted);
   font-size: var(--fontSizeSm);
 }
@@ -476,6 +790,14 @@ Media queries
     --colorDanger: #fca5a5;
     --colorDangerBg: #3a1418;
     --colorFocus: #fbbf24;
+    --colorRail: #9ab8ea;
+    --colorYouAreHere: #60a5fa;
+    --shadowRaised: 0 -2px 16px rgb(0 0 0 / 0.5);
+  }
+
+  /* OpenStreetMap only has light tiles; invert them so the map doesn't glare at night */
+  .leaflet-tile-pane {
+    filter: invert(1) hue-rotate(180deg) brightness(0.9) contrast(0.9);
   }
 }
 
@@ -486,7 +808,70 @@ Media queries
     --fontSizeXl: 2.25rem;
   }
 
-  .homePage {
+  /* The tab bar moves to the top and takes over from the site header */
+  body {
+    padding-bottom: 0;
+  }
+
+  .siteHeader {
+    display: none;
+  }
+
+  .tabBar {
+    position: sticky;
+    top: 0;
+    bottom: auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spaceLg);
+    padding: env(safe-area-inset-top) var(--spaceLg) 0;
+    border-top: 0;
+    background: var(--colorHeaderBg);
+    color: var(--colorHeaderText);
+  }
+
+  .tabBar :focus-visible {
+    outline-color: var(--colorHeaderText);
+  }
+
+  .tabBarBrand {
+    display: inline-flex;
+    align-items: center;
+    min-height: 3.5rem;
+    color: inherit;
+    font-size: var(--fontSizeLg);
+    font-weight: 800;
+    text-decoration: none;
+  }
+
+  .tabList {
+    display: flex;
+    gap: var(--spaceSm);
+  }
+
+  .tabLink {
+    flex-direction: row;
+    gap: var(--spaceSm);
+    min-height: 3.5rem;
+    padding-inline: var(--spaceMd);
+    border-top: 0;
+    border-bottom: 3px solid transparent;
+    color: var(--colorHeaderText);
+    font-size: var(--fontSizeBase);
+  }
+
+  .tabLink[aria-current='page'] {
+    border-bottom-color: var(--colorHeaderText);
+    color: var(--colorHeaderText);
+  }
+
+  .tabIcon {
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+
+  .searchPage {
     padding-block: calc(var(--spaceXl) * 2);
   }
 
@@ -507,6 +892,18 @@ Media queries
     bottom: var(--spaceMd);
     margin-inline: 0;
     margin-bottom: var(--spaceMd);
+    border: 1px solid var(--colorBorder);
+    border-radius: var(--radiusMd);
+  }
+
+  /* The sheet docks as a side panel so the map stays visible beside it */
+  .mapSheet {
+    top: var(--spaceMd);
+    right: auto;
+    bottom: var(--spaceMd);
+    left: var(--spaceMd);
+    width: 24rem;
+    max-height: none;
     border: 1px solid var(--colorBorder);
     border-radius: var(--radiusMd);
   }
