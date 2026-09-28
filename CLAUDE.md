@@ -48,6 +48,7 @@ At 48rem and wider, the tab bar becomes the top navigation and replaces the site
 - **Client scripts are plain deferred scripts, not modules**, listed per page through `head.ejs`'s `scripts` local. They share one global scope: `arrivals.js` defines globals used by `stopArrivals.js` and `mapView.js`, so top-level names must not collide across the scripts a page loads.
 - **The map** (`GET /`, `views/map.ejs`, `public/js/mapView.js`):
   - Leaflet 1.9.4 is served from `node_modules` at `/vendor/leaflet`, so the CSP needs no script CDN. Only `img-src` allows `https://tile.openstreetmap.org`.
+  - The tile layer sets `referrerPolicy: 'strict-origin-when-cross-origin'`. OpenStreetMap blocks browser tile requests that have no Referer and serves a "403 Access blocked" image instead. Helmet's site-wide `no-referrer` would strip the Referer, so keep this setting and don't loosen helmet's policy instead.
   - Stop pins load from `GET /api/stops?west=&south=&east=&north=` once the map reaches zoom 16. The client diffs pins by `stopId`, so they don't flicker while panning.
   - "Show stops near me" asks for location only when tapped, then calls `GET /api/stops/nearby?lat=&lon=` (`$geoNear`, 8 stops within 1 km).
   - Both endpoints read only MongoDB and skip stops with no routes. Their validators reject coordinates outside a box around Oʻahu.
