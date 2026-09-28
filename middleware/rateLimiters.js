@@ -19,6 +19,17 @@ exports.pageLimiter = rateLimit({
   },
 });
 
+// Map requests only read our database, never TheBus, but panning sends one per move
+exports.mapLimiter = rateLimit({
+  windowMs: WINDOW_MS,
+  limit: 180,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  handler: (req, res, next, options) => {
+    res.status(options.statusCode).json({ error: 'Too many requests. Wait a minute and try again.' });
+  },
+});
+
 exports.apiLimiter = rateLimit({
   windowMs: WINDOW_MS,
   limit: LIMIT,
