@@ -1,0 +1,524 @@
+/**************************************************************
+Base
+***************************************************************/
+/* Mobile-first: these values target phones. Larger screens adjust them in Media queries. */
+:root {
+  /* Colors */
+  --colorBg: #f3f5f7;
+  --colorSurface: #ffffff;
+  --colorText: #0f172a;
+  --colorTextMuted: #475569;
+  --colorBorder: #cbd5e1;
+  --colorPrimary: #0b5d7a;
+  --colorPrimaryText: #ffffff;
+  --colorHeaderBg: #0b5d7a;
+  --colorHeaderText: #ffffff;
+  --colorLive: #047857;
+  --colorDanger: #b91c1c;
+  --colorDangerBg: #fee2e2;
+  --colorFocus: #b45309;
+
+  /* Type */
+  --fontBody: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --fontSizeSm: 0.9375rem;
+  --fontSizeBase: 1.125rem;
+  --fontSizeLg: 1.375rem;
+  --fontSizeXl: 2rem;
+
+  /* Spacing */
+  --spaceXs: 0.25rem;
+  --spaceSm: 0.5rem;
+  --spaceMd: 1rem;
+  --spaceLg: 1.5rem;
+  --spaceXl: 2.5rem;
+
+  /* Shape and sizing */
+  --radiusSm: 0.5rem;
+  --radiusMd: 0.875rem;
+  --radiusPill: 999px;
+  --tapTarget: 3rem;
+  --contentWidth: 40rem;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* Component display rules shouldn't be able to override the hidden attribute */
+[hidden] {
+  display: none !important;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
+  margin: 0;
+  background: var(--colorBg);
+  color: var(--colorText);
+  font-family: var(--fontBody);
+  font-size: var(--fontSizeBase);
+  line-height: 1.5;
+}
+
+main {
+  flex: 1;
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+h1 {
+  font-size: var(--fontSizeXl);
+  line-height: 1.15;
+}
+
+h2 {
+  font-size: var(--fontSizeLg);
+  line-height: 1.25;
+}
+
+a {
+  color: var(--colorPrimary);
+}
+
+:focus-visible {
+  outline: 3px solid var(--colorFocus);
+  outline-offset: 3px;
+}
+
+/**************************************************************
+Utilities
+***************************************************************/
+.container {
+  width: 100%;
+  max-width: var(--contentWidth);
+  margin-inline: auto;
+  padding-inline: var(--spaceMd);
+}
+
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/**************************************************************
+Components
+***************************************************************/
+/* Buttons */
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--tapTarget);
+  padding: var(--spaceSm) var(--spaceLg);
+  border: 2px solid var(--colorPrimary);
+  border-radius: var(--radiusPill);
+  font: inherit;
+  font-weight: 700;
+  line-height: 1.2;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.buttonPrimary {
+  background: var(--colorPrimary);
+  color: var(--colorPrimaryText);
+}
+
+.buttonSecondary {
+  background: var(--colorSurface);
+  color: var(--colorPrimary);
+}
+
+.button[aria-disabled='true'] {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+/* Form controls */
+.formLabel {
+  font-size: var(--fontSizeLg);
+  font-weight: 700;
+}
+
+.formHint {
+  color: var(--colorTextMuted);
+  font-size: var(--fontSizeSm);
+}
+
+.formError {
+  color: var(--colorDanger);
+  font-weight: 600;
+}
+
+.textInput {
+  width: 100%;
+  min-height: 3.75rem;
+  padding: var(--spaceSm) var(--spaceMd);
+  border: 2px solid var(--colorBorder);
+  border-radius: var(--radiusMd);
+  background: var(--colorSurface);
+  color: var(--colorText);
+  font: inherit;
+}
+
+.textInput[aria-invalid='true'] {
+  border-color: var(--colorDanger);
+}
+
+/* Arrival card */
+.arrivalCard {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: var(--spaceMd);
+  padding: var(--spaceMd);
+  border: 1px solid var(--colorBorder);
+  border-radius: var(--radiusMd);
+  background: var(--colorSurface);
+}
+
+.routeBadge {
+  display: grid;
+  place-items: center;
+  min-width: var(--tapTarget);
+  min-height: var(--tapTarget);
+  padding-inline: var(--spaceXs);
+  border-radius: var(--radiusSm);
+  background: var(--colorPrimary);
+  color: var(--colorPrimaryText);
+  font-size: var(--fontSizeLg);
+  font-weight: 800;
+  line-height: 1;
+}
+
+.arrivalDetails {
+  min-width: 0;
+}
+
+.arrivalHeadsign {
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.arrivalMeta {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: var(--spaceSm);
+  margin-top: var(--spaceXs);
+  color: var(--colorTextMuted);
+  font-size: var(--fontSizeSm);
+}
+
+.arrivalStatus {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35em;
+  font-weight: 700;
+}
+
+.arrivalCard[data-status='live'] .arrivalStatus {
+  color: var(--colorLive);
+}
+
+/* Pulsing dot next to "Live" */
+.arrivalCard[data-status='live'] .arrivalStatus::before {
+  content: '';
+  width: 0.55em;
+  height: 0.55em;
+  border-radius: 50%;
+  background: currentColor;
+  animation: livePulse 2s ease-in-out infinite;
+}
+
+.arrivalCard[data-status='canceled'] .arrivalStatus {
+  color: var(--colorDanger);
+}
+
+.arrivalCard[data-status='canceled'] .arrivalTime,
+.arrivalCard[data-status='canceled'] .arrivalMinutes {
+  color: var(--colorTextMuted);
+  text-decoration: line-through;
+}
+
+.arrivalMinutes {
+  line-height: 1;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.minutesValue {
+  display: block;
+  font-size: var(--fontSizeXl);
+  font-weight: 800;
+}
+
+.minutesUnit {
+  display: block;
+  color: var(--colorTextMuted);
+  font-size: var(--fontSizeSm);
+  font-weight: 600;
+}
+
+@keyframes livePulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.35;
+  }
+}
+
+/**************************************************************
+Header
+***************************************************************/
+.siteHeader {
+  padding-top: env(safe-area-inset-top);
+  background: var(--colorHeaderBg);
+  color: var(--colorHeaderText);
+}
+
+.siteHeader :focus-visible {
+  outline-color: var(--colorHeaderText);
+}
+
+.siteHeaderInner {
+  display: flex;
+  align-items: center;
+  min-height: 3.5rem;
+}
+
+.brandLink {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tapTarget);
+  color: inherit;
+  font-size: var(--fontSizeLg);
+  font-weight: 800;
+  text-decoration: none;
+}
+
+/**************************************************************
+Home
+***************************************************************/
+.homePage {
+  padding-block: var(--spaceXl);
+}
+
+.homeTitle {
+  margin-bottom: var(--spaceSm);
+}
+
+.homeIntro {
+  margin-bottom: var(--spaceLg);
+  color: var(--colorTextMuted);
+}
+
+.stopForm {
+  display: grid;
+  gap: var(--spaceSm);
+}
+
+.stopInput {
+  font-size: var(--fontSizeXl);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.stopForm .button {
+  width: 100%;
+  margin-top: var(--spaceSm);
+}
+
+/**************************************************************
+Stop arrivals
+***************************************************************/
+.stopArrivals {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spaceMd);
+  padding-top: var(--spaceLg);
+}
+
+.stopHeader {
+  display: grid;
+  gap: var(--spaceXs);
+}
+
+.stopHeaderRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spaceMd);
+}
+
+.stopNumber {
+  color: var(--colorTextMuted);
+  font-size: var(--fontSizeSm);
+  font-weight: 700;
+}
+
+.changeStopLink {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tapTarget);
+  font-weight: 600;
+}
+
+/* Stop names are long and all caps ("S BERETANIA ST + PUNCHBOWL ST"), so start smaller on phones */
+.stopTitle {
+  font-size: var(--fontSizeLg);
+  overflow-wrap: anywhere;
+}
+
+.stopSubtitle {
+  color: var(--colorTextMuted);
+  font-size: var(--fontSizeSm);
+}
+
+.arrivalList {
+  display: grid;
+  gap: var(--spaceSm);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.stopMessage {
+  display: grid;
+  gap: var(--spaceSm);
+  padding: var(--spaceLg);
+  border: 1px solid var(--colorBorder);
+  border-radius: var(--radiusMd);
+  background: var(--colorSurface);
+}
+
+.unavailableMessage {
+  border-color: var(--colorDanger);
+  background: var(--colorDangerBg);
+}
+
+/**************************************************************
+Refresh bar
+***************************************************************/
+/* Sticks to the bottom of the screen so Refresh stays within thumb reach */
+.refreshBar {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spaceMd);
+  margin-top: auto;
+  margin-inline: calc(var(--spaceMd) * -1);
+  padding: var(--spaceSm) var(--spaceMd) calc(var(--spaceSm) + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--colorBorder);
+  background: var(--colorSurface);
+}
+
+.updatedTime {
+  color: var(--colorTextMuted);
+  font-size: var(--fontSizeSm);
+}
+
+/**************************************************************
+Error page
+***************************************************************/
+.errorPage {
+  display: grid;
+  justify-items: start;
+  gap: var(--spaceMd);
+  padding-block: var(--spaceXl);
+}
+
+/**************************************************************
+Footer
+***************************************************************/
+.siteFooter {
+  padding-block: var(--spaceLg);
+  color: var(--colorTextMuted);
+  font-size: var(--fontSizeSm);
+}
+
+/**************************************************************
+Media queries
+***************************************************************/
+@media (prefers-color-scheme: dark) {
+  :root {
+    --colorBg: #0b1220;
+    --colorSurface: #131c2e;
+    --colorText: #e5e9f0;
+    --colorTextMuted: #a3adbd;
+    --colorBorder: #2b3850;
+    --colorPrimary: #5cc8e8;
+    --colorPrimaryText: #062330;
+    --colorHeaderBg: #0f2a3a;
+    --colorHeaderText: #e5e9f0;
+    --colorLive: #6ee7b7;
+    --colorDanger: #fca5a5;
+    --colorDangerBg: #3a1418;
+    --colorFocus: #fbbf24;
+  }
+}
+
+/* Tablets and desktops */
+@media (min-width: 48rem) {
+  :root {
+    --contentWidth: 46rem;
+    --fontSizeXl: 2.25rem;
+  }
+
+  .homePage {
+    padding-block: calc(var(--spaceXl) * 2);
+  }
+
+  .stopForm {
+    max-width: 26rem;
+  }
+
+  .stopTitle {
+    font-size: var(--fontSizeXl);
+  }
+
+  .arrivalCard {
+    padding: var(--spaceMd) var(--spaceLg);
+  }
+
+  /* No thumb to reach for, so float the bar as a card instead of an edge-to-edge strip */
+  .refreshBar {
+    bottom: var(--spaceMd);
+    margin-inline: 0;
+    margin-bottom: var(--spaceMd);
+    border: 1px solid var(--colorBorder);
+    border-radius: var(--radiusMd);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
