@@ -217,6 +217,10 @@ L.control.zoom({ position: 'topright' }).addTo(map);
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
   maxZoom: 19,
   attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+  // OpenStreetMap's tile policy blocks browser requests with no Referer, and helmet's
+  // Referrer-Policy (no-referrer) strips it site-wide. Tiles alone send our origin only,
+  // never the page path, so nothing else about the rider is shared.
+  referrerPolicy: 'strict-origin-when-cross-origin',
 }).addTo(map);
 map.attributionControl.addAttribution(
   'Route and arrival data provided by permission of Oahu Transit Services, Inc'
