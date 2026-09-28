@@ -3,7 +3,9 @@
 
   <h3 align="center">Wea Da Bus</h3>
 
-  <p align="center">Deployed on Railway</p>
+  <p align="center">Web app is currently being built, functionalities may not work at this time</p>
+
+  <p align="center">Deployed on Railway: https://weadabus.up.railway.app/</p>
 
 ## About The Project
 
