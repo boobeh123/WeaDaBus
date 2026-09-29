@@ -19,7 +19,8 @@ Features are built one at a time, in this order:
 2. The map, in four steps:
    - 2a. GTFS import and models, plus stop names on the stop page. Done.
    - 2b. A full-screen Leaflet map of Oʻahu with a bottom tab bar (Nearby · Search), stop pins for the visible area, "Show stops near me", and a sheet of live arrivals when a pin is tapped. Done.
-   - 2c. Routes: add the Routes tab. The route line is solid for the selected direction and dotted and faded for the return, with a direction toggle labeled by headsign, stop pins, and live buses that glide to each new position.
+   - 2c-1. Routes: the Routes tab (`/routes`, with a filter box) and route maps (`/routes/:slug`). A route map has a solid line for the selected direction, a dotted, faded line for the return, a direction toggle labeled by headsign, the stops in order, and arrivals filtered to that route. Done.
+   - 2c-2. Live buses on the route map that glide to each new position.
    - 2d. Search by stop name, route, or stop number.
 3. Accounts and saved stops ("My Stops"), using Passport. The map, route browsing, and search must keep working without login.
 4. On-time reliability tracker. Poll a chosen set of stops and store the results in MongoDB.
@@ -39,8 +40,12 @@ At 48rem and wider, the tab bar becomes the top navigation and replaces the site
 - **Two data sources.** GTFS is the static map: stops, routes, and route lines. It is imported into MongoDB. The TheBus API is the live layer: arrivals and vehicle positions. Live data is never stored, except for the Feature 4 snapshots.
 - **Models** (`model/`), all written only by `scripts/importGtfs.js`:
   - `Stop`: keyed by `stopId`, the number on the sign. It has a GeoJSON `location` with a 2dsphere index, the display names of the routes that serve it, and `isRailStation` for Skyline stations.
-  - `Route`: `shortName` is what riders see, and `apiName` is how the arrivals endpoint names the route.
-  - `RoutePattern`: one per route + direction + shape. It holds the `path` LineString drawn on the map, the ordered `stopIds`, and a `tripCount`.
+  - `Route`:
+    - `slug` is the URL name (`42`, `a-line`, `skyline`).
+    - `shortName` is what riders see, and it is also how live vehicles name the route (`A LINE`).
+    - `apiName` is how the arrivals endpoint names it (`A`).
+    - The statics `Route.getDisplayName` and `Route.compareNames` give the display name and sort route names in rider order.
+  - `RoutePattern`: one per route + direction + shape. It holds the `path` LineString drawn on the map, the ordered `stopIds`, a `tripCount`, and every GTFS `tripIds` on it. A live bus's `<trip>` matches one of those IDs, which gives its direction.
 - **The import** parses everything in memory (two streaming passes over the 74 MB `stop_times.txt`) before touching the database. It then deletes and re-inserts each collection and syncs its indexes. `scripts/` is an addition to the standard MVC layout.
 - **`services/theBus.js` is the only code that calls TheBus.** It fetches and parses the XML and turns each arrival into `{ id, route, headsign, direction, time, minutesAway, status, statusLabel }`. It keeps only arrivals in the next 2 hours and caches each stop for 30 seconds. The cache stores the promise, so simultaneous requests for one stop share one TheBus call. `services/` is an addition to the standard MVC layout, for external API clients.
 - **Stops are checked in MongoDB before TheBus is called.** The stop page, the stop-number form, and the arrivals API all do this. The API can't tell a nonexistent stop from one with no buses coming, and the check saves quota.
@@ -54,6 +59,13 @@ At 48rem and wider, the tab bar becomes the top navigation and replaces the site
   - Both endpoints read only MongoDB and skip stops with no routes. Their validators reject coordinates outside a box around Oʻahu.
   - Pins are Leaflet markers with `keyboard: true`, which makes them focusable buttons. Leaflet only turns Enter into a click for popups, so `mapView.js` handles Enter and Space itself.
   - The OTS data credit is in the map's attribution and in the sheet, since the footer isn't shown on the map page.
+  - Below zoom 14, `mapView.js` adds `isZoomedOut` to the map and pins shrink to small dots, so they don't hide a route's line. The selected stop keeps its full size.
+- **Routes** (`controller/routeController.js`, `views/routes.ejs`, `public/js/routesList.js`):
+  - `GET /routes` server-renders every route, Skyline first, with a client-side filter box.
+  - `GET /routes/:slug` renders `views/map.ejs` in route mode. `data-route-slug` on `.mapPage` switches `mapView.js` into route mode, which loads `GET /api/routes/:slug`. That endpoint returns one line and stop list per direction, from the pattern with the highest `tripCount`.
+  - In route mode there are no area pins and no "near me". The sheet has a route view (direction toggle and stop timeline), and stop arrivals are filtered to the route's `apiName`.
+  - TheBus's route colors go on `.mapPage`, and on list badges, as `--routeColor` and `--routeTextColor`. They're set from JS, since pages can't use inline styles, and the CSS falls back to the primary colors.
+  - Route pages have no `maxBounds`. On phones the sheet covers the bottom 60% of the map, so fitting a south-shore route above it puts the map's center out over the ocean, and a pan limit would push the route under the sheet. Nearby keeps its limit, which its coordinate validators rely on.
 - **Failed TheBus calls don't reach the error handler.** The stop page shows a "TheBus isn't responding" message, and the API route returns a 502 with JSON.
 - **There are no sessions yet**, so an invalid or unknown stop number re-renders the Search page (`/search`) with the message instead of flashing and redirecting.
 
