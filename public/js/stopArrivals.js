@@ -6,6 +6,7 @@
 DOM selectors
 ***************************************************************/
 const stopSection = document.querySelector('.stopArrivals');
+const nextBusLabel = document.querySelector('.nextBusLabel');
 const arrivalList = document.querySelector('.arrivalList');
 const arrivalTemplate = document.querySelector('.arrivalTemplate');
 const emptyMessage = document.querySelector('.emptyMessage');
@@ -23,7 +24,7 @@ let shouldAnnounce = false;
 Helpers
 ***************************************************************/
 function renderArrivals(stop) {
-  const hasArrivals = renderArrivalList(arrivalList, arrivalTemplate, stop.arrivals);
+  const hasArrivals = renderArrivalList(arrivalList, arrivalTemplate, stop.arrivals, nextBusLabel);
   emptyMessage.hidden = hasArrivals;
   unavailableMessage.hidden = true;
 
