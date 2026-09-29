@@ -20,7 +20,7 @@ Features are built one at a time, in this order:
    - 2a. GTFS import and models, plus stop names on the stop page. Done.
    - 2b. A full-screen Leaflet map of Oʻahu with a bottom tab bar (Nearby · Search), stop pins for the visible area, "Show stops near me", and a sheet of live arrivals when a pin is tapped. Done.
    - 2c-1. Routes: the Routes tab (`/routes`, with a filter box) and route maps (`/routes/:slug`). A route map has a solid line for the selected direction, a dotted, faded line for the return, a direction toggle labeled by headsign, the stops in order, and arrivals filtered to that route. Done.
-   - 2c-2. Live buses on the route map that glide to each new position.
+   - 2c-2. Live buses on the route map that glide to each new position. Done.
    - 2d. Search by stop name, route, or stop number.
 3. Accounts and saved stops ("My Stops"), using Passport. The map, route browsing, and search must keep working without login.
 4. On-time reliability tracker. Poll a chosen set of stops and store the results in MongoDB.
@@ -47,7 +47,7 @@ At 48rem and wider, the tab bar becomes the top navigation and replaces the site
     - The statics `Route.getDisplayName` and `Route.compareNames` give the display name and sort route names in rider order.
   - `RoutePattern`: one per route + direction + shape. It holds the `path` LineString drawn on the map, the ordered `stopIds`, a `tripCount`, and every GTFS `tripIds` on it. A live bus's `<trip>` matches one of those IDs, which gives its direction.
 - **The import** parses everything in memory (two streaming passes over the 74 MB `stop_times.txt`) before touching the database. It then deletes and re-inserts each collection and syncs its indexes. `scripts/` is an addition to the standard MVC layout.
-- **`services/theBus.js` is the only code that calls TheBus.** It fetches and parses the XML and turns each arrival into `{ id, route, headsign, direction, time, minutesAway, status, statusLabel }`. It keeps only arrivals in the next 2 hours and caches each stop for 30 seconds. The cache stores the promise, so simultaneous requests for one stop share one TheBus call. `services/` is an addition to the standard MVC layout, for external API clients.
+- **`services/theBus.js` is the only code that calls TheBus.** Its XML parser forces arrays by path (`stopTimes.arrival`, `vehicles.vehicle`), because each `<arrival>` also has a `<vehicle>` tag that must stay a plain value. It fetches and parses the XML and turns each arrival into `{ id, route, headsign, direction, time, minutesAway, status, statusLabel }`. It keeps only arrivals in the next 2 hours and caches each stop for 30 seconds. The cache stores the promise, so simultaneous requests for one stop share one TheBus call. `services/` is an addition to the standard MVC layout, for external API clients.
 - **Stops are checked in MongoDB before TheBus is called.** The stop page, the stop-number form, and the arrivals API all do this. The API can't tell a nonexistent stop from one with no buses coming, and the check saves quota.
 - **Arrival cards come from one partial, rendered in three places.** `views/partials/arrivalCard.ejs` renders them on the server for `GET /stops/:stopId`, and also renders an empty copy inside a `<template>` on the stop page and the map. `public/js/arrivals.js` fills clones of that template and provides `createArrivalsPoller`. The poller calls `GET /api/stops/:stopId/arrivals` every 60 seconds; each page pauses it while the tab is hidden and stops it when the stop is left. If you change the card markup, keep the class names in `buildArrivalCard` in sync.
 - **Next bus.** Every arrival list puts the first bus that isn't canceled at the top, under "Next bus arriving to this stop:" (`.nextBusLabel`), with a divider below that card. `services/theBus.js` orders the list that way, and `putNextBusFirst` in `arrivals.js` does it again after a route page filters by route. The label hides when every bus is canceled.
@@ -66,6 +66,13 @@ At 48rem and wider, the tab bar becomes the top navigation and replaces the site
   - `GET /routes/:slug` renders `views/map.ejs` in route mode. `data-route-slug` on `.mapPage` switches `mapView.js` into route mode, which loads `GET /api/routes/:slug`. That endpoint returns one line and stop list per direction, from the pattern with the highest `tripCount`.
   - In route mode there are no area pins and no "near me". The sheet has a route view (direction toggle and stop timeline), and stop arrivals are filtered to the route's `apiName`.
   - TheBus's route colors go on `.mapPage`, and on list badges, as `--routeColor` and `--routeTextColor`. They're set from JS, since pages can't use inline styles, and the CSS falls back to the primary colors.
+  - **Live buses:**
+    - `services/theBus.js` `getVehicles()` makes one all-vehicles call, cached for 30 seconds and shared by every rider on every route (about 2,900 TheBus calls a day). It drops parked buses (`null_trip`) and buses silent for over 5 minutes, and it never reads `driver`.
+    - `GET /api/routes/:slug/vehicles` matches buses to the route by trip ID against `RoutePattern.tripIds`, which also gives each bus its direction. A bus whose trip isn't in our GTFS copy falls back to a `Route.shortName` match with `direction: null`.
+    - `mapView.js` polls that endpoint every 30 seconds, pausing while the tab is hidden. It glides each bus to its new report over 1.5 seconds, or jumps with reduced motion. It never animates guessed positions between reports.
+    - Buses heading the other way fade. Below zoom 14 they show only the bus glyph.
+    - Bus details open as a Leaflet popup built with DOM methods, since the text comes from TheBus.
+    - Skyline isn't polled, because the vehicle feed has no trains.
   - Route pages have no `maxBounds`. On phones the sheet covers the bottom 60% of the map, so fitting a south-shore route above it puts the map's center out over the ocean, and a pan limit would push the route under the sheet. Nearby keeps its limit, which its coordinate validators rely on.
 - **Failed TheBus calls don't reach the error handler.** The stop page shows a "TheBus isn't responding" message, and the API route returns a 502 with JSON.
 - **There are no sessions yet**, so an invalid or unknown stop number re-renders the Search page (`/search`) with the message instead of flashing and redirecting.
@@ -86,7 +93,8 @@ At 48rem and wider, the tab bar becomes the top navigation and replaces the site
 - **Names.** Route names are strings made of letters, numbers, or both (`A`, `2`, `307`, `W1`). Headsigns and stop names are all caps and are displayed as-is, because converting them to mixed case would mangle abbreviations like `U.H.` and `HNL`.
 - **Limits.** Each key is limited to 250,000 requests a day and is deleted after 6 months of inactivity. Bus positions update about once a minute and can be 2 or more minutes stale.
 - **Attribution.** The Terms of Use require the legend "Route and arrival data provided by permission of Oahu Transit Services, Inc" to be displayed prominently wherever the data appears. It is in the site footer. Using the marks "OTS" or "HEA" also requires the asterisk trademark notice quoted in the doc.
-- **Easy to misread.** In `vehicle:adherence`, positive means early and negative means late. `arrival:canceled` is `0` for active, `1` for canceled, and `-1` for canceled and then reinstated.
+- **Vehicle fields.** `route_short_name` uses GTFS short names (`A LINE`), not the arrivals names (`A`). The vehicle feed has no Skyline trains.
+- **Easy to misread.** In `vehicle:adherence`, positive means early and negative means late. It's in whole minutes: live values center on 0 and mostly run from 15 late to 2 early. `arrival:canceled` is `0` for active, `1` for canceled, and `-1` for canceled and then reinstated.
 - **The doc's DTD schemas disagree with its field lists.** For example, the arrivals DTD lists `scheduled` and omits `stopTime`, and the routes DTD uses `routeId` and `shapeDescription` where the field list says `routeID` and `firstStop`. Trust live responses first, then the field lists.
 
 ## GTFS feed
