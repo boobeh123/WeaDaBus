@@ -54,6 +54,10 @@ At 48rem and wider, the tab bar becomes the top navigation and replaces the site
 - **Client scripts are plain deferred scripts, not modules**, listed per page through `head.ejs`'s `scripts` local. They share one global scope: `arrivals.js` defines globals used by `stopArrivals.js` and `mapView.js`, so top-level names must not collide across the scripts a page loads.
 - **The map** (`GET /`, `views/map.ejs`, `public/js/mapView.js`):
   - Leaflet 1.9.4 is served from `node_modules` at `/vendor/leaflet`, so the CSP needs no script CDN. Only `img-src` allows `https://tile.openstreetmap.org`.
+  - **The map is created only after the page loads.** `mapView.js` builds the map in `start()`, which runs on the window `load` event, or at once if the page has already loaded. Don't move map creation back to the top level, for this reason:
+    - WebKit (Safari, and every browser on an iPhone) can run deferred scripts before the stylesheets finish loading.
+    - If Leaflet creates the map then, it finds the container unstyled and stamps an inline `position: relative` on it.
+    - That inline style overrides `.map`'s absolute positioning, and the map collapses to zero height. The whole map area then shows nothing, not even the zoom buttons.
   - The tile layer sets `referrerPolicy: 'strict-origin-when-cross-origin'`. OpenStreetMap blocks browser tile requests that have no Referer and serves a "403 Access blocked" image instead. Helmet's site-wide `no-referrer` would strip the Referer, so keep this setting and don't loosen helmet's policy instead.
   - Stop pins load from `GET /api/stops?west=&south=&east=&north=` once the map reaches zoom 16. The client diffs pins by `stopId`, so they don't flicker while panning.
   - "Show stops near me" asks for location only when tapped, then calls `GET /api/stops/nearby?lat=&lon=` (`$geoNear`, 8 stops within 1 km).
