@@ -17,6 +17,7 @@
     <p class="stopSubtitle">Buses in the next 2 hours</p>
   </header>
 
+  <p class="nextBusLabel"<% if (!arrivals.some((arrival) => arrival.status !== 'canceled')) { %> hidden<% } %>>Next bus arriving to this stop:</p>
   <ol class="arrivalList"<% if (arrivals.length === 0) { %> hidden<% } %>>
     <% arrivals.forEach((arrival) => { %>
     <%- include('partials/arrivalCard', { arrival }) %>
