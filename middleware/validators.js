@@ -16,6 +16,11 @@ const OAHU_LONGITUDE = { min: -158.6, max: -157.4 };
 const coordinateRule = (field, range) =>
   field.isString().isFloat(range).withMessage('Location must be on Oʻahu.').toFloat();
 
+// Route URLs like /routes/42 or /routes/a-line. Lowercased first so /routes/W1 works too.
+exports.validateRouteSlug = [
+  param('slug').isString().trim().toLowerCase().isLength({ max: 20 }).isSlug(),
+];
+
 exports.validateStopSearch = [stopNumberRule(query('stop'))];
 
 exports.validateStopId = [stopNumberRule(param('stopId'))];
