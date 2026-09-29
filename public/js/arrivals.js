@@ -23,10 +23,20 @@ function buildArrivalCard(template, arrival) {
   return card;
 }
 
-// Replaces the cards in a list and hides it when empty. Returns whether there were any.
-function renderArrivalList(list, template, arrivals) {
-  list.replaceChildren(...arrivals.map((arrival) => buildArrivalCard(template, arrival)));
+// The first bus that isn't canceled goes first, under the "Next bus" label; the rest keep time order.
+// services/theBus.js orders the same way, but a route page's filtering can undo it.
+function putNextBusFirst(arrivals) {
+  const nextIndex = arrivals.findIndex((arrival) => arrival.status !== 'canceled');
+  if (nextIndex <= 0) return arrivals;
+  return [arrivals[nextIndex], ...arrivals.filter((arrival, index) => index !== nextIndex)];
+}
+
+// Replaces the cards in a list and hides it when empty. Shows the "Next bus arriving to this stop:"
+// label only when some bus is actually coming. Returns whether there were any cards.
+function renderArrivalList(list, template, arrivals, nextBusLabel) {
+  list.replaceChildren(...putNextBusFirst(arrivals).map((arrival) => buildArrivalCard(template, arrival)));
   list.hidden = arrivals.length === 0;
+  nextBusLabel.hidden = !arrivals.some((arrival) => arrival.status !== 'canceled');
   return arrivals.length > 0;
 }
 
