@@ -64,6 +64,15 @@ function toArrival(raw, nowMs) {
   };
 }
 
+// Pages label the first card "Next bus arriving to this stop:", so the first bus that isn't
+// canceled goes first and the rest keep time order. public/js/arrivals.js does the same
+// after a route page filters the list.
+function putNextBusFirst(arrivals) {
+  const nextIndex = arrivals.findIndex((arrival) => arrival.status !== 'canceled');
+  if (nextIndex <= 0) return arrivals;
+  return [arrivals[nextIndex], ...arrivals.filter((arrival, index) => index !== nextIndex)];
+}
+
 async function fetchArrivals(stopId) {
   const url = new URL('/arrivals/', BASE_URL);
   url.search = new URLSearchParams({ key: process.env.WEBSERVICESKEY, stop: stopId });
@@ -89,7 +98,7 @@ async function fetchArrivals(stopId) {
     .filter((arrival) => arrival.minutesAway >= 0 && arrival.minutesAway <= WINDOW_MINUTES)
     .sort((a, b) => a.minutesAway - b.minutesAway);
 
-  return { stopId, updatedAt: formatClock(time), arrivals };
+  return { stopId, updatedAt: formatClock(time), arrivals: putNextBusFirst(arrivals) };
 }
 
 function pruneCache() {
