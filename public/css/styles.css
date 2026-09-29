@@ -212,8 +212,9 @@ Components
   min-height: var(--tapTarget);
   padding-inline: var(--spaceXs);
   border-radius: var(--radiusSm);
-  background: var(--colorPrimary);
-  color: var(--colorPrimaryText);
+  /* TheBus's route colors where it sets them (routesList.js and mapView.js set these) */
+  background: var(--routeColor, var(--colorPrimary));
+  color: var(--routeTextColor, var(--colorPrimaryText));
   font-size: var(--fontSizeLg);
   font-weight: 800;
   line-height: 1;
@@ -417,6 +418,64 @@ Search
 }
 
 /**************************************************************
+Routes
+***************************************************************/
+.routesPage {
+  display: grid;
+  gap: var(--spaceMd);
+  padding-block: var(--spaceLg);
+}
+
+.routeFilterField {
+  display: grid;
+  gap: var(--spaceXs);
+}
+
+.routeCount {
+  color: var(--colorTextMuted);
+  font-size: var(--fontSizeSm);
+}
+
+.routeList {
+  display: grid;
+  gap: var(--spaceSm);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.routeLink {
+  display: flex;
+  align-items: center;
+  gap: var(--spaceMd);
+  min-height: var(--tapTarget);
+  padding: var(--spaceSm) var(--spaceMd);
+  border: 1px solid var(--colorBorder);
+  border-radius: var(--radiusMd);
+  background: var(--colorSurface);
+  color: var(--colorText);
+  text-decoration: none;
+}
+
+/* Same width for every badge, so the route names line up down the list */
+.routeLink .routeBadge {
+  flex-shrink: 0;
+  min-width: 5.5rem;
+}
+
+.routeDescription {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.routeEmpty {
+  padding: var(--spaceMd);
+  border: 1px solid var(--colorBorder);
+  border-radius: var(--radiusMd);
+  background: var(--colorSurface);
+}
+
+/**************************************************************
 Stop arrivals
 ***************************************************************/
 .stopArrivals {
@@ -561,8 +620,8 @@ Map
   pointer-events: none;
 }
 
-/* Bottom center, within thumb reach, clear of the map credits */
-.locateButton {
+/* "Show stops near me" and "Route 42 stops": bottom center, within thumb reach, clear of the map credits */
+.floatingButton {
   position: absolute;
   bottom: calc(var(--spaceXl) * 1.5);
   left: 50%;
@@ -597,6 +656,14 @@ Map
   border-radius: 3px;
   background: var(--colorRail);
   box-shadow: 0 0 0 1px var(--colorRail);
+}
+
+/* Zoomed out, pins shrink to small dots so a route's line stays visible between them.
+   The selected stop keeps its full size. mapView.js sets isZoomedOut. */
+.map.isZoomedOut .stopPin:not(.isSelected)::before {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-width: 2px;
 }
 
 .stopPin.isSelected::before {
@@ -753,6 +820,125 @@ Map
   font-size: var(--fontSizeSm);
 }
 
+/* Route lines. CSS stroke overrides Leaflet's default blue, so lines follow the route color. */
+.routeLineCasing {
+  stroke: var(--colorSurface);
+}
+
+.routeLine {
+  stroke: var(--routeColor, var(--colorPrimary));
+}
+
+/* The trip back: round dots, faded, so the selected direction reads first */
+.routeLine.isReturn {
+  opacity: 0.6;
+  stroke-dasharray: 1 10;
+}
+
+.directionToggle {
+  display: grid;
+  gap: var(--spaceSm);
+}
+
+.directionButton {
+  min-height: var(--tapTarget);
+  padding: var(--spaceSm) var(--spaceMd);
+  border: 2px solid var(--colorBorder);
+  border-radius: var(--radiusMd);
+  background: var(--colorSurface);
+  color: var(--colorText);
+  font: inherit;
+  font-size: var(--fontSizeSm);
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* A check mark as well as the fill, so the chosen direction doesn't rely on color alone */
+.directionButton[aria-pressed='true'] {
+  border-color: var(--colorPrimary);
+  background: var(--colorPrimary);
+  color: var(--colorPrimaryText);
+}
+
+.directionButton[aria-pressed='true']::before {
+  content: '✓  ' / '';
+}
+
+.routeHint {
+  color: var(--colorTextMuted);
+  font-size: var(--fontSizeSm);
+}
+
+/* The route's stops as a timeline: a line down the left with a ring at each stop */
+.routeStopList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.routeStopItem {
+  position: relative;
+  padding-left: var(--spaceLg);
+}
+
+.routeStopItem::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: var(--spaceSm);
+  width: 4px;
+  background: var(--routeColor, var(--colorPrimary));
+  transform: translateX(-50%);
+}
+
+.routeStopItem:first-child::before {
+  top: 50%;
+}
+
+.routeStopItem:last-child::before {
+  bottom: 50%;
+}
+
+.routeStopItem::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: var(--spaceSm);
+  width: 0.875rem;
+  height: 0.875rem;
+  border: 3px solid var(--routeColor, var(--colorPrimary));
+  border-radius: 50%;
+  background: var(--colorSurface);
+  transform: translate(-50%, -50%);
+}
+
+.routeStop {
+  display: grid;
+  width: 100%;
+  min-height: var(--tapTarget);
+  padding: var(--spaceSm) var(--spaceMd);
+  border: 0;
+  border-bottom: 1px solid var(--colorBorder);
+  background: none;
+  color: var(--colorText);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.routeStopName {
+  font-size: var(--fontSizeSm);
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.routeStopMeta {
+  color: var(--colorTextMuted);
+  font-size: var(--fontSizeSm);
+}
+
 /**************************************************************
 Error page
 ***************************************************************/
@@ -873,6 +1059,10 @@ Media queries
 
   .searchPage {
     padding-block: calc(var(--spaceXl) * 2);
+  }
+
+  .routeList {
+    grid-template-columns: repeat(2, 1fr);
   }
 
   .stopForm {
