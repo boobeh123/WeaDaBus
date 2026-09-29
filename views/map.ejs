@@ -68,11 +68,21 @@
       </div>
 
       <div class="sheetRoute" hidden>
+        <%# Each direction has its own color: the first uses the route's color, the second orange %>
         <div class="directionToggle" role="group" aria-label="Direction">
-          <button class="directionButton" type="button" aria-pressed="true"></button>
-          <button class="directionButton" type="button" aria-pressed="false"></button>
+          <% ['', ' isDirectionB'].forEach((directionClass, index) => { %>
+          <button class="directionButton<%= directionClass %>" type="button" aria-pressed="<%= index === 0 %>">
+            <span class="directionLabel"></span>
+            <svg class="directionSwitchIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M4 8h15l-4-4M20 16H5l4 4"/>
+            </svg>
+          </button>
+          <% }) %>
         </div>
-        <p class="sheetNote routeHint">The solid line is this direction. The dotted line is the trip back.</p>
+        <p class="routeHint">
+          <span class="routeHintItem"><span class="lineSample" aria-hidden="true"></span><span class="visuallyHidden">Solid line: </span>This direction</span>
+          <span class="routeHintItem"><span class="lineSample isDotted" aria-hidden="true"></span><span class="visuallyHidden">Dotted line: </span>The trip back</span>
+        </p>
         <p class="busSummary" role="status">Looking for buses on this route…</p>
         <ol class="routeStopList"></ol>
       </div>
@@ -103,6 +113,20 @@
       </li>
     </template>
 
+    <%# Icons inside stop pins, shown at street level: a stop sign, or a train for Skyline %>
+    <template class="stopPinIconTemplate">
+      <svg class="stopPinIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="6" y="3" width="12" height="9" rx="2"/>
+        <path d="M12 12v9"/>
+      </svg>
+    </template>
+    <template class="railPinIconTemplate">
+      <svg class="stopPinIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <rect x="6" y="3" width="12" height="13" rx="3"/>
+        <path d="M6 10h12M9 16l-2 5M15 16l2 5"/>
+      </svg>
+    </template>
+
     <% if (route) { %>
     <%# A live bus on the map: mapView.js fills in the number and places it %>
     <template class="busTemplate">
@@ -120,8 +144,13 @@
     <template class="routeStopTemplate">
       <li class="routeStopItem">
         <button class="routeStop" type="button">
-          <span class="routeStopName"></span>
-          <span class="routeStopMeta"></span>
+          <span class="routeStopText">
+            <span class="routeStopName"></span>
+            <span class="routeStopMeta"></span>
+          </span>
+          <svg class="rowChevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="m9 18 6-6-6-6"/>
+          </svg>
         </button>
       </li>
     </template>
