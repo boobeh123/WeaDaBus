@@ -21,6 +21,9 @@ Base
   --colorYouAreHere: #2563eb;
   --shadowRaised: 0 -2px 16px rgb(15 23 42 / 0.18);
   --shadowMarker: 0 1px 4px rgb(15 23 42 / 0.35);
+  /* A route's second direction. The first uses the route's own color (--routeColor). */
+  --colorDirectionB: #c2410c;
+  --colorDirectionBText: #ffffff;
 
   /* Type */
   --fontBody: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
@@ -654,11 +657,17 @@ Map
   transform: translateX(-50%);
 }
 
-/* Stop pins: the Leaflet marker is a 32px tap area around a smaller visible dot */
+/* Stop pins: the Leaflet marker is a 32px tap area around a smaller visible dot.
+   The dot (::before) and the street-level icon share one grid cell so they stack. */
 .stopPin {
   display: grid;
   place-items: center;
   border-radius: 50%;
+}
+
+.stopPin::before,
+.stopPinIcon {
+  grid-area: 1 / 1;
 }
 
 .stopPin::before {
@@ -669,6 +678,21 @@ Map
   border-radius: 50%;
   background: var(--colorPrimary);
   box-shadow: 0 0 0 1px var(--colorPrimary);
+  transition: transform 0.12s ease, background-color 0.12s ease;
+}
+
+.stopPinIcon {
+  display: none;
+  width: 1rem;
+  height: 1rem;
+  color: var(--colorSurface);
+  pointer-events: none;
+}
+
+/* Pressed: the dot shrinks and darkens, so a tap feels like pressing a button */
+.stopPin:active::before {
+  filter: brightness(0.75);
+  transform: scale(0.85);
 }
 
 /* Skyline stations are squares in Skyline's color, so they differ by shape as well as color */
@@ -693,6 +717,25 @@ Map
   height: 1.5rem;
   border-width: 4px;
   box-shadow: 0 0 0 3px var(--colorText);
+}
+
+/* Street level: pins grow into stop markers with an icon, a clear change from the dots */
+.map.isStreetLevel .stopPin::before {
+  width: 1.75rem;
+  height: 1.75rem;
+}
+
+.map.isStreetLevel .railPin::before {
+  border-radius: 6px;
+}
+
+.map.isStreetLevel .stopPin.isSelected::before {
+  width: 2.25rem;
+  height: 2.25rem;
+}
+
+.map.isStreetLevel .stopPinIcon {
+  display: block;
 }
 
 .youAreHere {
@@ -851,10 +894,28 @@ Map
   stroke: var(--routeColor, var(--colorPrimary));
 }
 
+.routeLine.isDirectionB {
+  stroke: var(--colorDirectionB);
+}
+
 /* The trip back: round dots, faded, so the selected direction reads first */
 .routeLine.isReturn {
   opacity: 0.6;
   stroke-dasharray: 1 10;
+}
+
+/* Each direction's color, used by its button, the stop timeline, and the line legend.
+   The first direction uses the route's color; the second is orange. */
+.sheetRoute {
+  --directionAColor: var(--routeColor, var(--colorPrimary));
+  --directionATextColor: var(--routeTextColor, var(--colorPrimaryText));
+  --selectedDirectionColor: var(--directionAColor);
+  --otherDirectionColor: var(--colorDirectionB);
+}
+
+.sheetRoute.isDirectionB {
+  --selectedDirectionColor: var(--colorDirectionB);
+  --otherDirectionColor: var(--directionAColor);
 }
 
 .directionToggle {
@@ -862,10 +923,18 @@ Map
   gap: var(--spaceSm);
 }
 
+/* An outlined button with a thick color stripe and a switch icon, so it reads as tappable */
 .directionButton {
+  --directionColor: var(--directionAColor);
+  --directionTextColor: var(--directionATextColor);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spaceSm);
   min-height: var(--tapTarget);
   padding: var(--spaceSm) var(--spaceMd);
-  border: 2px solid var(--colorBorder);
+  border: 2px solid var(--directionColor);
+  border-left-width: 0.5rem;
   border-radius: var(--radiusMd);
   background: var(--colorSurface);
   color: var(--colorText);
@@ -874,22 +943,62 @@ Map
   font-weight: 700;
   text-align: left;
   cursor: pointer;
+  transition: transform 0.12s ease;
 }
 
-/* A check mark as well as the fill, so the chosen direction doesn't rely on color alone */
+.directionButton.isDirectionB {
+  --directionColor: var(--colorDirectionB);
+  --directionTextColor: var(--colorDirectionBText);
+}
+
+.directionSwitchIcon {
+  flex-shrink: 0;
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+/* The chosen direction fills with its color and gets a check mark, so it doesn't rely on color alone */
 .directionButton[aria-pressed='true'] {
-  border-color: var(--colorPrimary);
-  background: var(--colorPrimary);
-  color: var(--colorPrimaryText);
+  background: var(--directionColor);
+  color: var(--directionTextColor);
 }
 
-.directionButton[aria-pressed='true']::before {
+.directionButton[aria-pressed='true'] .directionLabel::before {
   content: '✓  ' / '';
 }
 
+.directionButton[aria-pressed='true'] .directionSwitchIcon {
+  display: none;
+}
+
+.directionButton:active {
+  transform: scale(0.98);
+}
+
+/* A small legend with line samples in each direction's color. Plain text, so it doesn't look like a button. */
 .routeHint {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spaceXs) var(--spaceLg);
   color: var(--colorTextMuted);
   font-size: var(--fontSizeSm);
+}
+
+.routeHintItem {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spaceSm);
+}
+
+.lineSample {
+  width: 1.75rem;
+  border-top: 4px solid var(--selectedDirectionColor);
+  border-radius: 2px;
+}
+
+.lineSample.isDotted {
+  border-top-style: dotted;
+  border-top-color: var(--otherDirectionColor);
 }
 
 /* The route's stops as a timeline: a line down the left with a ring at each stop */
@@ -911,7 +1020,7 @@ Map
   bottom: 0;
   left: var(--spaceSm);
   width: 4px;
-  background: var(--routeColor, var(--colorPrimary));
+  background: var(--selectedDirectionColor);
   transform: translateX(-50%);
 }
 
@@ -930,14 +1039,18 @@ Map
   left: var(--spaceSm);
   width: 0.875rem;
   height: 0.875rem;
-  border: 3px solid var(--routeColor, var(--colorPrimary));
+  border: 3px solid var(--selectedDirectionColor);
   border-radius: 50%;
   background: var(--colorSurface);
   transform: translate(-50%, -50%);
 }
 
+/* Each stop row ends in a chevron, so the list reads as tappable */
 .routeStop {
   display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: var(--spaceSm);
   width: 100%;
   min-height: var(--tapTarget);
   padding: var(--spaceSm) var(--spaceMd);
@@ -948,6 +1061,20 @@ Map
   font: inherit;
   text-align: left;
   cursor: pointer;
+}
+
+.routeStop:active {
+  background: var(--colorSurface);
+}
+
+.routeStopText {
+  display: grid;
+}
+
+.rowChevron {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: var(--colorTextMuted);
 }
 
 .routeStopName {
@@ -996,7 +1123,12 @@ Map
   height: 1rem;
 }
 
-/* Buses heading the other way fade, like the dotted line they're on */
+/* Buses take their direction's color, and fade when heading the other way, like the dotted line */
+.busMarker.isDirectionB .busBadge {
+  background: var(--colorDirectionB);
+  color: var(--colorDirectionBText);
+}
+
 .busMarker.isOtherDirection .busBadge {
   opacity: 0.5;
 }
@@ -1072,6 +1204,8 @@ Media queries
     --colorYouAreHere: #60a5fa;
     --shadowRaised: 0 -2px 16px rgb(0 0 0 / 0.5);
     --shadowMarker: 0 1px 4px rgb(0 0 0 / 0.6);
+    --colorDirectionB: #fb923c;
+    --colorDirectionBText: #1c0d02;
   }
 
   /* OpenStreetMap only has light tiles; invert them so the map doesn't glare at night */
@@ -1189,6 +1323,32 @@ Media queries
     max-height: none;
     border: 1px solid var(--colorBorder);
     border-radius: var(--radiusMd);
+  }
+}
+
+/* Hover effects only on devices with a mouse, so they don't stay stuck on after a tap on phones */
+@media (hover: hover) {
+  .stopPin:hover::before {
+    background: var(--colorFocus);
+    box-shadow: 0 0 0 1px var(--colorFocus);
+    transform: scale(1.2);
+  }
+
+  /* Pressing with a mouse still shrinks the dot, even though it's also hovered */
+  .stopPin:hover:active::before {
+    transform: scale(0.9);
+  }
+
+  .directionButton[aria-pressed='false']:hover {
+    background: color-mix(in srgb, var(--directionColor) 15%, var(--colorSurface));
+  }
+
+  .routeStop:hover {
+    background: var(--colorSurface);
+  }
+
+  .routeStop:hover .rowChevron {
+    color: var(--colorText);
   }
 }
 
