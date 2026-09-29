@@ -42,13 +42,9 @@ function formatGtfsDate(date) {
   return `${date.slice(0, 4)}-${date.slice(4, 6)}-${date.slice(6, 8)}`;
 }
 
-// Sorts route names the way riders expect: 2 before 10, and 84 before 84A
-function compareRouteNames(a, b) {
-  return a.localeCompare(b, 'en', { numeric: true });
-}
-
-function getRouteDisplayName(route) {
-  return route.shortName || route.longName; // Skyline has no short name
+// "A LINE" -> "a-line", "42" -> "42", "SKYLINE" -> "skyline"
+function toSlug(name) {
+  return name.trim().toLowerCase().split(' ').join('-');
 }
 
 async function downloadFeed() {
@@ -83,6 +79,7 @@ async function readRoutes(bytes) {
     const shortName = row.route_short_name;
     routes.set(row.route_id, {
       routeId: row.route_id,
+      slug: toSlug(shortName || row.route_long_name),
       shortName,
       longName: row.route_long_name,
       // Arrivals call "A LINE" just "A", and call Skyline (no short name) "SKYLINE"
@@ -175,7 +172,7 @@ function groupPatterns(trips, stopCountByTrip) {
         direction: trip.direction,
         shapeId: trip.shapeId,
         headsignCounts: new Map(),
-        tripCount: 0,
+        tripIds: [],
         longestTripId: null,
         longestStopCount: -1,
       });
@@ -183,7 +180,7 @@ function groupPatterns(trips, stopCountByTrip) {
 
     const pattern = patterns.get(key);
     const stopCount = stopCountByTrip.get(tripId) || 0;
-    pattern.tripCount += 1;
+    pattern.tripIds.push(tripId);
     pattern.headsignCounts.set(trip.headsign, (pattern.headsignCounts.get(trip.headsign) || 0) + 1);
     if (stopCount > pattern.longestStopCount) {
       pattern.longestTripId = tripId;
@@ -259,21 +256,22 @@ async function importGtfs() {
     routeId: pattern.routeId,
     direction: pattern.direction,
     headsign:
-      getMostCommonHeadsign(pattern.headsignCounts) || getRouteDisplayName(routes.get(pattern.routeId)),
+      getMostCommonHeadsign(pattern.headsignCounts) || Route.getDisplayName(routes.get(pattern.routeId)),
     shapeId: pattern.shapeId,
     path: { type: 'LineString', coordinates: paths.get(pattern.shapeId) },
     stopIds: stopsByLongestTrip
       .get(pattern.longestTripId)
       .sort((a, b) => a.sequence - b.sequence)
       .map((tripStop) => tripStop.stopId),
-    tripCount: pattern.tripCount,
+    tripCount: pattern.tripIds.length,
+    tripIds: pattern.tripIds,
   }));
 
   const stopDocs = [...stopsByCode.values()].map(({ routeIds, ...stop }) => ({
     ...stop,
     routes: [...routeIds]
-      .map((routeId) => getRouteDisplayName(routes.get(routeId)))
-      .sort(compareRouteNames),
+      .map((routeId) => Route.getDisplayName(routes.get(routeId)))
+      .sort(Route.compareNames),
     isRailStation: [...routeIds].some((routeId) => routes.get(routeId).mode === 'rail'),
   }));
 
