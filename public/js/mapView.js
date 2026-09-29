@@ -242,6 +242,16 @@ function getLineClass(direction) {
 
 // The selected direction is a solid line on a white casing; the trip back is dotted and drawn
 // first, so the selected line stays on top where the two share a street
+// Light dashes that glide along the selected line in the direction buses travel. The path is
+// stored in the order the bus drives it, so the dashes move the right way on their own.
+// styles.css plays the animation 4 times; after that the layer removes itself, so nothing
+// keeps redrawing while a rider waits.
+function addFlow(latLngs) {
+  const flow = L.polyline(latLngs, { className: 'routeFlow', weight: 3, interactive: false });
+  routeLines.addLayer(flow);
+  flow.getElement()?.addEventListener('animationend', () => routeLines.removeLayer(flow), { once: true });
+}
+
 function drawRouteLines() {
   routeLines.clearLayers();
 
@@ -254,6 +264,7 @@ function drawRouteLines() {
     if (direction.direction === selectedDirection) {
       routeLines.addLayer(L.polyline(latLngs, { className: 'routeLineCasing', weight: 10, interactive: false }));
       routeLines.addLayer(L.polyline(latLngs, { className: getLineClass(direction), weight: 6, interactive: false }));
+      addFlow(latLngs);
     } else {
       routeLines.addLayer(
         L.polyline(latLngs, { className: `${getLineClass(direction)} isReturn`, weight: 4, interactive: false })
@@ -352,6 +363,15 @@ function glideMarker(marker, to) {
 }
 
 // Each bus takes its direction's color, and fades when heading the other way
+// One sonar ring from the bus (styles.css), meaning "this bus just reported a new position"
+function pingBus(marker) {
+  const element = marker.getElement();
+  if (!element) return;
+  element.classList.remove('isPinging');
+  void element.offsetWidth; // Reading layout here restarts the ring if the last one hasn't finished
+  element.classList.add('isPinging');
+}
+
 function styleBuses() {
   busMarkers.forEach((marker) => {
     const { vehicle } = marker.options;
@@ -375,13 +395,19 @@ function showBuses(vehicles) {
   vehicles.forEach((vehicle) => {
     const marker = busMarkers.get(vehicle.number);
     if (marker) {
+      const { lat, lon } = marker.options.vehicle;
+      const hasMoved = lat !== vehicle.lat || lon !== vehicle.lon;
       marker.options.vehicle = vehicle;
       marker.setPopupContent(buildBusDetails(vehicle));
-      glideMarker(marker, [vehicle.lat, vehicle.lon]);
+      if (hasMoved) {
+        glideMarker(marker, [vehicle.lat, vehicle.lon]);
+        pingBus(marker);
+      }
     } else {
       const newMarker = buildBusMarker(vehicle);
       busMarkers.set(vehicle.number, newMarker);
       busLayer.addLayer(newMarker);
+      pingBus(newMarker);
     }
   });
 
