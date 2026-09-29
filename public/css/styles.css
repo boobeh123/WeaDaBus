@@ -290,6 +290,27 @@ Components
   font-weight: 600;
 }
 
+/* "Next bus arriving to this stop:" sits above the first card, and a divider below that card
+   sets it apart from the later buses. The divider only shows while the label does. */
+.nextBusLabel {
+  font-size: var(--fontSizeSm);
+  font-weight: 700;
+}
+
+.nextBusLabel:not([hidden]) + .arrivalList > .arrivalCard:first-child:not(:last-child) {
+  position: relative;
+  margin-bottom: var(--spaceMd);
+}
+
+.nextBusLabel:not([hidden]) + .arrivalList > .arrivalCard:first-child:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: calc((var(--spaceMd) + var(--spaceSm)) / -2 - 1px);
+  left: 0;
+  border-bottom: 2px solid var(--colorTextMuted);
+}
+
 @keyframes livePulse {
   0%,
   100% {
