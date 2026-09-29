@@ -1,0 +1,38 @@
+<%- include('partials/head', { title, scripts: ['/js/routesList.js'] }) %>
+<%- include('partials/header') %>
+<%- include('partials/tabBar') %>
+
+<main class="routesPage container">
+  <h1 class="routesTitle">Routes</h1>
+
+  <div class="routeFilterField">
+    <label class="formLabel" for="routeFilter">Find your Rail or Bus route</label>
+    <p class="formHint" id="routeFilterHint">Type a route number, letter, or place, like 42, W1, or Waikiki.</p>
+    <input
+      class="textInput routeFilter"
+      id="routeFilter"
+      type="search"
+      autocomplete="off"
+      enterkeyhint="search"
+      aria-describedby="routeFilterHint"
+      aria-controls="routeList"
+    >
+  </div>
+
+  <p class="routeCount" role="status"><%= routes.length %> routes</p>
+
+  <ul class="routeList" id="routeList">
+    <% routes.forEach((route) => { %>
+    <li class="routeItem" data-search="<%= `${route.name} ${route.description}`.toLowerCase() %>">
+      <a class="routeLink" href="/routes/<%= route.slug %>">
+        <span class="routeBadge" data-color="<%= route.color || '' %>" data-text-color="<%= route.textColor || '' %>"><%= route.name %></span>
+        <span class="routeDescription"><%= route.description %></span>
+      </a>
+    </li>
+    <% }) %>
+  </ul>
+
+  <p class="routeEmpty" hidden>No routes match. Try a route number like 42, or a place like Waikiki.</p>
+</main>
+
+<%- include('partials/footer') %>
