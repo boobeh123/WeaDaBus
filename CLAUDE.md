@@ -60,9 +60,17 @@ At 48rem and wider, the tab bar becomes the top navigation and replaces the site
   - Both endpoints read only MongoDB and skip stops with no routes. Their validators reject coordinates outside a box around Oʻahu.
   - Pins are Leaflet markers with `keyboard: true`, which makes them focusable buttons. Leaflet only turns Enter into a click for popups, so `mapView.js` handles Enter and Space itself.
   - The OTS data credit is in the map's attribution and in the sheet, since the footer isn't shown on the map page.
-  - Below zoom 14, `mapView.js` adds `isZoomedOut` to the map and pins shrink to small dots, so they don't hide a route's line. The selected stop keeps its full size.
+  - **Pin sizes.** Pins come in three sizes, set by classes `mapView.js` puts on `.map`:
+    - Below zoom 14 (`isZoomedOut`), small dots, so they don't hide a route's line. The selected stop keeps its full size.
+    - From 14 to 16, plain dots.
+    - At 16 and up (`isStreetLevel`), 28 px stop markers with an icon: a stop sign, or a train for Skyline. The icons come from templates in `views/map.ejs`.
+  - **Tap and hover feedback.** Pins, direction buttons, and stop rows have a pressed (`:active`) state. iPhone Safari only applies `:active` when the page listens for touches, so `mapView.js` adds an empty passive `touchstart` listener. Hover effects sit in `@media (hover: hover)`, so they don't stay stuck after a tap on phones.
 - **Routes** (`controller/routeController.js`, `views/routes.ejs`, `public/js/routesList.js`):
-  - `GET /routes` server-renders every route, Skyline first, with a client-side filter box.
+  - `GET /routes` server-renders every route, with a client-side filter box. The order is Skyline, then letter routes (A LINE, C, E, PH1 … W3), then number routes, each group in natural order. The sort is `compareForList` in `routeController.js`.
+  - **Direction colors.** Every route has exactly two directions. The first uses the route's color (`--routeColor`, falling back to the primary color). The second is orange (`--colorDirectionB`).
+    - `mapView.js` adds `isDirectionB` to the second direction's line, to its buses, and to `.sheetRoute` while it's selected.
+    - The direction buttons, the stop timeline, and the line legend all read their colors from variables on `.sheetRoute`.
+    - The selected direction is always solid, filled, and checked, and the other is dotted and faded, so color is never the only cue.
   - `GET /routes/:slug` renders `views/map.ejs` in route mode. `data-route-slug` on `.mapPage` switches `mapView.js` into route mode, which loads `GET /api/routes/:slug`. That endpoint returns one line and stop list per direction, from the pattern with the highest `tripCount`.
   - In route mode there are no area pins and no "near me". The sheet has a route view (direction toggle and stop timeline), and stop arrivals are filtered to the route's `apiName`.
   - TheBus's route colors go on `.mapPage`, and on list badges, as `--routeColor` and `--routeTextColor`. They're set from JS, since pages can't use inline styles, and the CSS falls back to the primary colors.
