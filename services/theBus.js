@@ -6,6 +6,7 @@ const BASE_URL = 'https://api.thebus.org';
 const REQUEST_TIMEOUT_MS = 8000;
 const CACHE_TTL_MS = 30 * 1000; // TheBus data only changes about once a minute
 const WINDOW_MINUTES = 120; // TheBus returns its next 25 trips, which can run into tomorrow
+const STALE_VEHICLE_SECONDS = 5 * 60; // A bus silent this long is likely parked or out of service
 
 const STATUS_LABELS = {
   live: 'Live',
@@ -15,12 +16,17 @@ const STATUS_LABELS = {
 
 const parser = new XMLParser({
   parseTagValue: false, // Keep every value a string: routes like "A", vehicles like "???"
-  isArray: (name) => name === 'arrival', // A single arrival still parses as an array
+  // A single arrival or vehicle still parses as an array. Matched by path, because each
+  // <arrival> also contains a <vehicle> tag (the bus number) that must stay a plain value.
+  isArray: (name, jpath) => jpath === 'stopTimes.arrival' || jpath === 'vehicles.vehicle',
 });
 
 // stopId -> { promise, expiresAt }. Caching the promise, not the result, means
 // requests for the same stop share one TheBus call even while it's in flight.
 const arrivalsCache = new Map();
+
+// { promise, expiresAt } for the all-vehicles call, shared by every rider on every route
+let vehiclesCache = null;
 
 // TheBus sends Hawaii local time with no time zone, e.g. "9/27/2026" and "8:36 PM".
 // Reading the arrival and the response timestamp both as UTC keeps the difference
@@ -34,6 +40,12 @@ function parseHawaiiTime(date, time) {
   const hour24 = (hour % 12) + (meridiem === 'PM' ? 12 : 0);
 
   return Date.UTC(year, month - 1, day, hour24, minute, second);
+}
+
+// "9/27/2026 8:16:56 PM", as a single string
+function parseHawaiiTimestamp(timestamp) {
+  const [date, ...timeParts] = String(timestamp).split(' ');
+  return parseHawaiiTime(date, timeParts.join(' '));
 }
 
 // "8:16:56 PM" -> "8:16 PM"
@@ -101,6 +113,63 @@ async function fetchArrivals(stopId) {
   return { stopId, updatedAt: formatClock(time), arrivals: putNextBusFirst(arrivals) };
 }
 
+// The driver field is left out on purpose: it changes between calls and riders don't need it
+function toVehicle(raw, nowMs) {
+  return {
+    number: raw.number,
+    trip: raw.trip,
+    routeName: raw.route_short_name, // The GTFS short name, e.g. 'A LINE' (arrivals call it 'A')
+    headsign: raw.headsign,
+    lat: Number(raw.latitude),
+    lon: Number(raw.longitude),
+    adherenceMinutes: Number(raw.adherence), // Positive is early, negative is late
+    reportedSecondsAgo: Math.max(0, Math.round((nowMs - parseHawaiiTimestamp(raw.last_message)) / 1000)),
+  };
+}
+
+async function fetchVehicles() {
+  const url = new URL('/vehicle/', BASE_URL);
+  url.search = new URLSearchParams({ key: process.env.WEBSERVICESKEY }); // No num: every vehicle
+
+  const res = await fetch(url, { signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
+  if (!res.ok) throw new Error(`TheBus responded with HTTP ${res.status}`);
+
+  const xml = new TextDecoder('latin1').decode(await res.arrayBuffer());
+  const { vehicles } = parser.parse(xml);
+
+  if (!vehicles?.timestamp) throw new Error('TheBus sent an unexpected vehicles response');
+  if (vehicles.errorMessage) throw new Error(`TheBus error: ${vehicles.errorMessage}`);
+
+  const nowMs = parseHawaiiTimestamp(vehicles.timestamp);
+
+  // Parked buses have no trip, and a bus that stopped reporting may be out of service
+  const onTheRoad = (vehicles.vehicle ?? [])
+    .filter((raw) => raw.trip !== 'null_trip')
+    .map((raw) => toVehicle(raw, nowMs))
+    .filter(
+      (vehicle) =>
+        vehicle.reportedSecondsAgo <= STALE_VEHICLE_SECONDS && Number.isFinite(vehicle.lat) && vehicle.lat !== 0
+    );
+
+  const [, ...timeParts] = vehicles.timestamp.split(' ');
+  return { updatedAt: formatClock(timeParts.join(' ')), vehicles: onTheRoad };
+}
+
+// One call covers every route, so it's cached as a whole
+function getVehicles() {
+  if (vehiclesCache && vehiclesCache.expiresAt > Date.now()) return vehiclesCache.promise;
+
+  const promise = fetchVehicles();
+  vehiclesCache = { promise, expiresAt: Date.now() + CACHE_TTL_MS };
+
+  // Don't cache failures: the next request should try TheBus again
+  promise.catch(() => {
+    if (vehiclesCache?.promise === promise) vehiclesCache = null;
+  });
+
+  return promise;
+}
+
 function pruneCache() {
   const now = Date.now();
   arrivalsCache.forEach((entry, stopId) => {
@@ -124,4 +193,4 @@ function getArrivals(stopId) {
   return promise;
 }
 
-module.exports = { getArrivals };
+module.exports = { getArrivals, getVehicles };
