@@ -32,6 +32,8 @@ const routeStopList = document.querySelector('.routeStopList');
 const routeStopTemplate = document.querySelector('.routeStopTemplate');
 const busSummary = document.querySelector('.busSummary');
 const busTemplate = document.querySelector('.busTemplate'); // Route mode only
+const stopPinIconTemplate = document.querySelector('.stopPinIconTemplate');
+const railPinIconTemplate = document.querySelector('.railPinIconTemplate');
 const sheetStop = document.querySelector('.sheetStop');
 const sheetRoutes = document.querySelector('.sheetRoutes');
 const sheetUpdated = document.querySelector('.sheetUpdated');
@@ -50,6 +52,7 @@ const OAHU_BOUNDS = [[21.24, -158.3], [21.73, -157.64]];
 const PAN_LIMIT_BOUNDS = [[21.1, -158.5], [21.85, -157.45]];
 const STOP_PIN_MIN_ZOOM = 16; // Below street level, pins would overlap and bog down phones
 const PIN_DETAIL_ZOOM = 14; // Below this, pins shrink to small dots so they don't hide a route's line
+const STREET_LEVEL_ZOOM = 16; // From here, pins grow into stop markers with an icon
 const NEARBY_ZOOM = 17;
 const PIN_SIZE = 32; // Tap area in pixels. The visible dot is smaller (styles.css).
 const SHEET_MARGIN = 24; // Pixels kept between map content and the sheet
@@ -124,11 +127,15 @@ function getSheetPadding() {
 }
 
 // Pins are Leaflet markers so they can take keyboard focus. The stop rides along as an option.
+// Each carries an icon (views/map.ejs) that styles.css shows only at street level.
 function buildStopPin(stop) {
+  const iconTemplate = stop.isRailStation ? railPinIconTemplate : stopPinIconTemplate;
+
   return L.marker([stop.lat, stop.lon], {
     icon: L.divIcon({
       className: stop.isRailStation ? 'stopPin railPin' : 'stopPin',
       iconSize: [PIN_SIZE, PIN_SIZE],
+      html: iconTemplate.content.firstElementChild.cloneNode(true),
     }),
     title: `Stop ${stop.stopId}: ${stop.name}`,
     keyboard: true,
@@ -170,9 +177,12 @@ function clearStops() {
   pinsByStopId.clear();
 }
 
-// styles.css shrinks pins to small dots while the map has isZoomedOut
+// Three pin sizes: small dots zoomed out (isZoomedOut), plain dots in between,
+// and stop markers with an icon at street level (isStreetLevel). styles.css does the sizing.
 function updatePinSize() {
-  mapElement.classList.toggle('isZoomedOut', map.getZoom() < PIN_DETAIL_ZOOM);
+  const zoom = map.getZoom();
+  mapElement.classList.toggle('isZoomedOut', zoom < PIN_DETAIL_ZOOM);
+  mapElement.classList.toggle('isStreetLevel', zoom >= STREET_LEVEL_ZOOM);
 }
 
 function showYouAreHere(lat, lon) {
@@ -215,6 +225,15 @@ function getSelectedDirection() {
   return routeData.directions.find((direction) => direction.direction === selectedDirection);
 }
 
+// The second direction gets its own color (orange); the first keeps the route's color
+function isDirectionB(directionNumber) {
+  return routeData.directions.length > 1 && directionNumber === routeData.directions[1].direction;
+}
+
+function getLineClass(direction) {
+  return isDirectionB(direction.direction) ? 'routeLine isDirectionB' : 'routeLine';
+}
+
 // The selected direction is a solid line on a white casing; the trip back is dotted and drawn
 // first, so the selected line stays on top where the two share a street
 function drawRouteLines() {
@@ -228,9 +247,11 @@ function drawRouteLines() {
     const latLngs = toLatLngs(direction.path);
     if (direction.direction === selectedDirection) {
       routeLines.addLayer(L.polyline(latLngs, { className: 'routeLineCasing', weight: 10, interactive: false }));
-      routeLines.addLayer(L.polyline(latLngs, { className: 'routeLine', weight: 6, interactive: false }));
+      routeLines.addLayer(L.polyline(latLngs, { className: getLineClass(direction), weight: 6, interactive: false }));
     } else {
-      routeLines.addLayer(L.polyline(latLngs, { className: 'routeLine isReturn', weight: 4, interactive: false }));
+      routeLines.addLayer(
+        L.polyline(latLngs, { className: `${getLineClass(direction)} isReturn`, weight: 4, interactive: false })
+      );
     }
   });
 }
@@ -324,9 +345,13 @@ function glideMarker(marker, to) {
   marker.glideFrame = requestAnimationFrame(step);
 }
 
+// Each bus takes its direction's color, and fades when heading the other way
 function styleBuses() {
   busMarkers.forEach((marker) => {
-    marker.getElement()?.classList.toggle('isOtherDirection', isOtherDirection(marker.options.vehicle));
+    const { vehicle } = marker.options;
+    const element = marker.getElement();
+    element?.classList.toggle('isOtherDirection', isOtherDirection(vehicle));
+    element?.classList.toggle('isDirectionB', vehicle.direction !== null && isDirectionB(vehicle.direction));
   });
 }
 
@@ -553,6 +578,8 @@ function selectDirection(directionNumber) {
   directionButtons.forEach((button) => {
     button.setAttribute('aria-pressed', String(Number(button.dataset.direction) === directionNumber));
   });
+  // Swaps the stop timeline and the line legend to the selected direction's color
+  sheetRoute.classList.toggle('isDirectionB', isDirectionB(directionNumber));
   drawRouteLines();
   showStops(direction.stops);
   routeStopList.replaceChildren(...direction.stops.map(buildRouteStopItem));
@@ -605,7 +632,7 @@ async function loadRoute() {
     button.hidden = !direction;
     if (!direction) return;
     button.dataset.direction = direction.direction;
-    button.textContent = `To ${direction.headsign}`;
+    button.querySelector('.directionLabel').textContent = `To ${direction.headsign}`;
   });
   routeHint.hidden = routeData.directions.length < 2;
 
@@ -741,6 +768,8 @@ sheetBack.addEventListener('click', handleBackClick);
 sheetClose.addEventListener('click', closeSheet);
 document.addEventListener('keydown', handleKeydown);
 document.addEventListener('visibilitychange', handleVisibilityChange);
+// iPhone Safari only shows :active (the pressed look on pins and buttons) when the page listens for touches
+document.addEventListener('touchstart', () => {}, { passive: true });
 
 updatePinSize();
 
