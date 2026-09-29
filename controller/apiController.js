@@ -1,6 +1,8 @@
 const mongoose = require('mongoose');
 const { validationResult, matchedData } = require('express-validator');
 const Stop = require('../model/Stop');
+const Route = require('../model/Route');
+const RoutePattern = require('../model/RoutePattern');
 const theBus = require('../services/theBus');
 
 const MAX_STOPS_IN_AREA = 400;
@@ -68,6 +70,51 @@ exports.getStopsInArea = async (req, res) => {
 
   res.set('Cache-Control', `public, max-age=${STOP_LIST_CACHE_SECONDS}`);
   res.json({ stops: stops.map(toStopSummary) });
+};
+
+// GET /api/routes/:slug: one line per direction, with that direction's stops in order.
+// Each direction uses its pattern with the most trips; short-trip variants aren't drawn.
+exports.getRouteDetails = async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ error: 'Invalid route.' });
+  }
+
+  const route = await Route.findOne({ slug: matchedData(req).slug }).lean();
+  if (!route) {
+    return res.status(404).json({ error: 'Route not found.' });
+  }
+
+  const patterns = await RoutePattern.find({ routeId: route.routeId })
+    .select('-tripIds') // Thousands of IDs the map doesn't need
+    .sort({ tripCount: -1 })
+    .lean();
+  const mainPatterns = [0, 1]
+    .map((direction) => patterns.find((pattern) => pattern.direction === direction))
+    .filter(Boolean);
+
+  const stopIds = [...new Set(mainPatterns.flatMap((pattern) => pattern.stopIds))];
+  const stops = await Stop.find({ stopId: mongoose.trusted({ $in: stopIds }) }).lean();
+  const stopsById = new Map(stops.map((stop) => [stop.stopId, toStopSummary(stop)]));
+
+  res.set('Cache-Control', `public, max-age=${STOP_LIST_CACHE_SECONDS}`);
+  res.json({
+    route: {
+      slug: route.slug,
+      name: Route.getDisplayName(route),
+      longName: route.longName,
+      apiName: route.apiName,
+      color: route.color,
+      textColor: route.textColor,
+      mode: route.mode,
+    },
+    directions: mainPatterns.map((pattern) => ({
+      direction: pattern.direction,
+      headsign: pattern.headsign,
+      path: pattern.path.coordinates, // [[longitude, latitude], ...]
+      stops: pattern.stopIds.map((stopId) => stopsById.get(stopId)).filter(Boolean),
+    })),
+  });
 };
 
 // GET /api/stops/nearby?lat=&lon=: the closest stops to the rider, with walking-line distance
