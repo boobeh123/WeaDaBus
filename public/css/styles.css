@@ -20,6 +20,7 @@ Base
   --colorRail: #142e57; /* Skyline's own color from the GTFS feed */
   --colorYouAreHere: #2563eb;
   --shadowRaised: 0 -2px 16px rgb(15 23 42 / 0.18);
+  --shadowMarker: 0 1px 4px rgb(15 23 42 / 0.35);
 
   /* Type */
   --fontBody: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
@@ -960,6 +961,76 @@ Map
   font-size: var(--fontSizeSm);
 }
 
+.busSummary {
+  color: var(--colorTextMuted);
+  font-size: var(--fontSizeSm);
+  font-weight: 600;
+}
+
+/* Live buses: a pill with a bus glyph and the bus number in the route's colors.
+   The Leaflet marker is the tap area; the pill can spill past it for longer numbers. */
+.busMarker {
+  display: grid;
+  place-items: center;
+}
+
+.busBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spaceXs);
+  padding: var(--spaceXs) var(--spaceSm);
+  border: 2px solid var(--colorSurface);
+  border-radius: var(--radiusPill);
+  background: var(--routeColor, var(--colorPrimary));
+  color: var(--routeTextColor, var(--colorPrimaryText));
+  box-shadow: var(--shadowMarker);
+  font-size: var(--fontSizeSm);
+  font-weight: 800;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.busGlyph {
+  flex-shrink: 0;
+  width: 1rem;
+  height: 1rem;
+}
+
+/* Buses heading the other way fade, like the dotted line they're on */
+.busMarker.isOtherDirection .busBadge {
+  opacity: 0.5;
+}
+
+/* Zoomed out, buses crowd together downtown, so they show just the glyph.
+   The number is still in each bus's details. */
+.map.isZoomedOut .busNumber {
+  display: none;
+}
+
+/* Bus details: Leaflet's popup, recolored so it follows dark mode */
+.map .leaflet-popup-content-wrapper,
+.map .leaflet-popup-tip {
+  background: var(--colorSurface);
+  color: var(--colorText);
+}
+
+.busDetails {
+  display: grid;
+  gap: var(--spaceXs);
+  font-family: var(--fontBody);
+  font-size: var(--fontSizeSm);
+}
+
+/* Leaflet gives popup paragraphs large margins */
+.map .busDetails p {
+  margin: 0;
+}
+
+.busDetailsTitle {
+  font-size: var(--fontSizeBase);
+  font-weight: 800;
+}
+
 /**************************************************************
 Error page
 ***************************************************************/
@@ -1000,6 +1071,7 @@ Media queries
     --colorRail: #9ab8ea;
     --colorYouAreHere: #60a5fa;
     --shadowRaised: 0 -2px 16px rgb(0 0 0 / 0.5);
+    --shadowMarker: 0 1px 4px rgb(0 0 0 / 0.6);
   }
 
   /* OpenStreetMap only has light tiles; invert them so the map doesn't glare at night */
