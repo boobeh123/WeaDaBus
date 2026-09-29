@@ -1,3 +1,4 @@
+<%# Two modes: Nearby (GET /) shows stops around the rider; route mode (GET /routes/:slug) shows one route %>
 <%- include('partials/head', {
   title,
   bodyClass: 'mapBody',
@@ -10,10 +11,10 @@
   const blankArrival = { route: '', headsign: '', direction: '', time: '', minutesAway: 0, status: '', statusLabel: '' };
 %>
 
-<main class="mapPage">
-  <h1 class="visuallyHidden">Bus stops on Oʻahu</h1>
+<main class="mapPage"<% if (route) { %> data-route-slug="<%= route.slug %>" data-route-name="<%= route.name %>"<% } %>>
+  <h1 class="visuallyHidden"><%= route ? `Route ${route.name}: ${route.description}` : 'Bus stops on Oʻahu' %></h1>
 
-  <div class="map" role="region" aria-label="Map of Oʻahu bus stops"></div>
+  <div class="map" role="region" aria-label="<%= route ? `Map of route ${route.name}` : 'Map of Oʻahu bus stops' %>"></div>
 
   <noscript>
     <p class="mapNotice">The map needs JavaScript. <a href="/search">Look up a stop by number</a> instead.</p>
@@ -22,7 +23,7 @@
   <p class="mapNotice zoomHint" hidden>Zoom in to see bus stops</p>
   <p class="mapNotice mapMessage" role="status"></p>
 
-  <button class="button buttonPrimary locateButton" type="button">
+  <button class="button buttonPrimary floatingButton locateButton" type="button"<% if (route) { %> hidden<% } %>>
     <svg class="buttonIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
       <circle cx="12" cy="12" r="4"/>
       <path d="M12 2v3M12 19v3M2 12h3M19 12h3"/>
@@ -30,14 +31,24 @@
     <span class="locateLabel">Show stops near me</span>
   </button>
 
-  <%# One sheet, two views: the list of nearby stops, or one stop's live arrivals %>
+  <% if (route) { %>
+  <%# Reopens the route sheet after it's closed to see more of the map %>
+  <button class="button buttonPrimary floatingButton routeSheetButton" type="button" hidden>
+    <svg class="buttonIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+      <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>
+    </svg>
+    Route <%= route.name %> stops
+  </button>
+  <% } %>
+
+  <%# One sheet, three views: nearby stops, a route's stops, or one stop's live arrivals %>
   <section class="mapSheet" aria-labelledby="sheetTitle" hidden>
     <div class="sheetHeader">
       <button class="sheetBack" type="button" hidden>
         <svg class="buttonIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="m15 18-6-6 6-6"/>
         </svg>
-        Nearby stops
+        <span class="sheetBackLabel">Nearby stops</span>
       </button>
       <div class="sheetHeading">
         <p class="sheetEyebrow"></p>
@@ -56,11 +67,20 @@
         <p class="sheetNote nearbyEmpty" hidden>No bus stops within 1 km of you.</p>
       </div>
 
+      <div class="sheetRoute" hidden>
+        <div class="directionToggle" role="group" aria-label="Direction">
+          <button class="directionButton" type="button" aria-pressed="true"></button>
+          <button class="directionButton" type="button" aria-pressed="false"></button>
+        </div>
+        <p class="sheetNote routeHint">The solid line is this direction. The dotted line is the trip back.</p>
+        <ol class="routeStopList"></ol>
+      </div>
+
       <div class="sheetStop" hidden>
         <p class="sheetRoutes"></p>
         <p class="sheetUpdated">Loading arrivals…</p>
         <ol class="arrivalList" hidden></ol>
-        <p class="sheetNote emptyMessage" hidden>No buses in the next 2 hours. Service at this stop may be done for the day.</p>
+        <p class="sheetNote emptyMessage" hidden></p>
         <p class="sheetNote unavailableMessage" hidden>TheBus isn't responding. We'll try again in a minute.</p>
         <a class="button buttonSecondary sheetStopLink" href="/search">Open stop page</a>
       </div>
@@ -77,6 +97,15 @@
         <button class="nearbyStop" type="button">
           <span class="nearbyName"></span>
           <span class="nearbyMeta"></span>
+        </button>
+      </li>
+    </template>
+
+    <template class="routeStopTemplate">
+      <li class="routeStopItem">
+        <button class="routeStop" type="button">
+          <span class="routeStopName"></span>
+          <span class="routeStopMeta"></span>
         </button>
       </li>
     </template>
