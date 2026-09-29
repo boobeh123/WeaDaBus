@@ -33,6 +33,7 @@ const routeStopTemplate = document.querySelector('.routeStopTemplate');
 const sheetStop = document.querySelector('.sheetStop');
 const sheetRoutes = document.querySelector('.sheetRoutes');
 const sheetUpdated = document.querySelector('.sheetUpdated');
+const nextBusLabel = document.querySelector('.nextBusLabel');
 const arrivalList = document.querySelector('.arrivalList');
 const arrivalTemplate = document.querySelector('.arrivalTemplate');
 const emptyMessage = document.querySelector('.emptyMessage');
@@ -236,7 +237,7 @@ function renderSheetArrivals(stop) {
   const arrivals = routeData
     ? stop.arrivals.filter((arrival) => arrival.route === routeData.route.apiName)
     : stop.arrivals;
-  const hasArrivals = renderArrivalList(arrivalList, arrivalTemplate, arrivals);
+  const hasArrivals = renderArrivalList(arrivalList, arrivalTemplate, arrivals, nextBusLabel);
   emptyMessage.hidden = hasArrivals;
   unavailableMessage.hidden = true;
   sheetUpdated.textContent = `Updated ${stop.updatedAt}`;
@@ -382,6 +383,7 @@ function openStop(stop, { backTo: backToView = null } = {}) {
     : 'No buses in the next 2 hours. Service at this stop may be done for the day.';
   sheetStopLink.href = `/stops/${stop.stopId}`;
   sheetUpdated.textContent = 'Loading arrivals…';
+  nextBusLabel.hidden = true;
   arrivalList.replaceChildren();
   arrivalList.hidden = true;
   emptyMessage.hidden = true;
