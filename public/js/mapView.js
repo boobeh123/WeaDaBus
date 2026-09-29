@@ -1,7 +1,7 @@
 // The map page, in one of two modes:
 // - Nearby (GET /): stop pins for the visible area, "Show stops near me", and live arrivals for a stop.
 // - Route (GET /routes/:slug): one route's line (solid this way, dotted the way back), its stops,
-//   a direction toggle, and live arrivals for that route only.
+//   a direction toggle, live buses on the route, and live arrivals for that route only.
 // Leaflet (the global L) and arrivals.js load before this file.
 
 /**************************************************************
@@ -30,6 +30,8 @@ const directionButtons = [...document.querySelectorAll('.directionButton')];
 const routeHint = document.querySelector('.routeHint');
 const routeStopList = document.querySelector('.routeStopList');
 const routeStopTemplate = document.querySelector('.routeStopTemplate');
+const busSummary = document.querySelector('.busSummary');
+const busTemplate = document.querySelector('.busTemplate'); // Route mode only
 const sheetStop = document.querySelector('.sheetStop');
 const sheetRoutes = document.querySelector('.sheetRoutes');
 const sheetUpdated = document.querySelector('.sheetUpdated');
@@ -51,6 +53,10 @@ const PIN_DETAIL_ZOOM = 14; // Below this, pins shrink to small dots so they don
 const NEARBY_ZOOM = 17;
 const PIN_SIZE = 32; // Tap area in pixels. The visible dot is smaller (styles.css).
 const SHEET_MARGIN = 24; // Pixels kept between map content and the sheet
+const VEHICLE_REFRESH_MS = 30 * 1000; // Matches the server's cache; buses report about once a minute
+const GLIDE_MS = 1500; // How long a bus takes to slide to its newly reported spot
+const BUS_ICON_SIZE = [48, 30];
+const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
 const FEET_PER_METER = 3.28084;
 const FEET_PER_MILE = 5280;
 
@@ -67,6 +73,8 @@ let lastFocus = null; // Where focus returns when the sheet closes
 let backTo = null; // Which list the stop sheet's back button returns to: 'nearby' or 'route'
 let routeData = null; // { route, directions } from /api/routes/:slug
 let selectedDirection = null;
+const busMarkers = new Map(); // bus number -> Leaflet marker
+let vehiclesTimer = null;
 
 /**************************************************************
 Helpers
@@ -232,6 +240,123 @@ function fitRoute() {
   map.fitBounds(L.latLngBounds(allPoints), getSheetPadding());
 }
 
+// Only bus routes: TheBus's vehicle feed doesn't include Skyline trains
+function hasLiveVehicles() {
+  return Boolean(routeData?.directions.length) && routeData.route.mode === 'bus';
+}
+
+// TheBus reports adherence in minutes: positive is early, negative is late
+function describeAdherence(minutes) {
+  if (!Number.isFinite(minutes)) return 'Schedule unknown';
+  if (minutes === 0) return 'On time';
+  return `${Math.abs(minutes)} min ${minutes > 0 ? 'early' : 'late'}`;
+}
+
+function describeReported(secondsAgo) {
+  return secondsAgo < 60 ? 'Reported just now' : `Reported ${Math.round(secondsAgo / 60)} min ago`;
+}
+
+function describeBusCount(count) {
+  if (count === 0) return 'No buses on this route right now.';
+  return `${count} ${count === 1 ? 'bus' : 'buses'} on this route right now. Tap a bus for details.`;
+}
+
+// Buses heading the other way fade, like the dotted line they're on. Unknown direction stays solid.
+function isOtherDirection(vehicle) {
+  return vehicle.direction !== null && vehicle.direction !== selectedDirection;
+}
+
+// Built with DOM methods, not an HTML string, since the text comes from TheBus
+function buildBusDetails(vehicle) {
+  const details = document.createElement('div');
+  details.className = 'busDetails';
+
+  const lines = [
+    ['busDetailsTitle', `Bus ${vehicle.number}`],
+    ['busDetailsLine', `To ${vehicle.headsign}`],
+    ['busDetailsLine', `${describeAdherence(vehicle.adherenceMinutes)} · ${describeReported(vehicle.reportedSecondsAgo)}`],
+  ];
+  lines.forEach(([className, text]) => {
+    const line = document.createElement('p');
+    line.className = className;
+    line.textContent = text;
+    details.append(line);
+  });
+
+  return details;
+}
+
+// A focusable marker showing a bus glyph and number (views/map.ejs has the template).
+// Leaflet opens its popup on click, or on Enter for keyboard users.
+function buildBusMarker(vehicle) {
+  const badge = busTemplate.content.firstElementChild.cloneNode(true);
+  badge.querySelector('.busNumber').textContent = vehicle.number;
+
+  const marker = L.marker([vehicle.lat, vehicle.lon], {
+    icon: L.divIcon({ className: 'busMarker', html: badge, iconSize: BUS_ICON_SIZE }),
+    title: `Bus ${vehicle.number}`,
+    keyboard: true,
+    zIndexOffset: 500, // Above the stop pins
+    vehicle,
+  });
+  marker.bindPopup(buildBusDetails(vehicle));
+  return marker;
+}
+
+// Slides a bus from its last reported spot to the new one. It only animates between real
+// reports, and never guesses where a bus is in between. Reduced motion jumps instead.
+function glideMarker(marker, to) {
+  cancelAnimationFrame(marker.glideFrame);
+  const from = marker.getLatLng();
+
+  if (reducedMotion.matches || document.hidden) {
+    marker.setLatLng(to);
+    return;
+  }
+
+  const start = performance.now();
+  const step = (now) => {
+    const progress = Math.min(1, (now - start) / GLIDE_MS);
+    const eased = 1 - (1 - progress) ** 3; // Quick start, gentle stop
+    marker.setLatLng([from.lat + (to[0] - from.lat) * eased, from.lng + (to[1] - from.lng) * eased]);
+    if (progress < 1) marker.glideFrame = requestAnimationFrame(step);
+  };
+  marker.glideFrame = requestAnimationFrame(step);
+}
+
+function styleBuses() {
+  busMarkers.forEach((marker) => {
+    marker.getElement()?.classList.toggle('isOtherDirection', isOtherDirection(marker.options.vehicle));
+  });
+}
+
+// Moves buses that are still on the route, adds new ones, and removes ones that left
+function showBuses(vehicles) {
+  const numbersNow = new Set(vehicles.map((vehicle) => vehicle.number));
+
+  busMarkers.forEach((marker, number) => {
+    if (!numbersNow.has(number)) {
+      busLayer.removeLayer(marker);
+      busMarkers.delete(number);
+    }
+  });
+
+  vehicles.forEach((vehicle) => {
+    const marker = busMarkers.get(vehicle.number);
+    if (marker) {
+      marker.options.vehicle = vehicle;
+      marker.setPopupContent(buildBusDetails(vehicle));
+      glideMarker(marker, [vehicle.lat, vehicle.lon]);
+    } else {
+      const newMarker = buildBusMarker(vehicle);
+      busMarkers.set(vehicle.number, newMarker);
+      busLayer.addLayer(newMarker);
+    }
+  });
+
+  styleBuses();
+}
+
 // On a route page, only that route's buses; everywhere else, every bus at the stop
 function renderSheetArrivals(stop) {
   const arrivals = routeData
@@ -303,6 +428,7 @@ map.attributionControl.addAttribution(
 
 const routeLines = L.layerGroup().addTo(map); // Leaflet draws lines in a pane under the stop pins
 const stopPins = L.featureGroup().addTo(map);
+const busLayer = L.layerGroup().addTo(map); // Route mode only
 map.fitBounds(OAHU_BOUNDS);
 
 /**************************************************************
@@ -430,6 +556,26 @@ function selectDirection(directionNumber) {
   drawRouteLines();
   showStops(direction.stops);
   routeStopList.replaceChildren(...direction.stops.map(buildRouteStopItem));
+  styleBuses();
+}
+
+// Live buses on this route, refreshed every 30 seconds while the page is visible
+async function loadVehicles() {
+  clearTimeout(vehiclesTimer);
+
+  try {
+    const res = await fetch(`/api/routes/${encodeURIComponent(routeSlug)}/vehicles`);
+    if (!res.ok) throw new Error(`Vehicles request failed with HTTP ${res.status}`);
+    const { vehicles } = await res.json();
+    showBuses(vehicles);
+    busSummary.textContent = describeBusCount(vehicles.length);
+  } catch (err) {
+    // Leave the buses where they were last seen, and say the live view is out
+    console.error(err);
+    busSummary.textContent = "Live bus locations aren't available right now. We'll keep trying.";
+  } finally {
+    if (!document.hidden) vehiclesTimer = setTimeout(loadVehicles, VEHICLE_REFRESH_MS);
+  }
 }
 
 async function loadRoute() {
@@ -466,6 +612,13 @@ async function loadRoute() {
   selectDirection(routeData.directions[0].direction);
   showRouteSheet();
   fitRoute();
+
+  // TheBus's vehicle feed covers buses only, so Skyline has no live positions to poll
+  if (hasLiveVehicles()) {
+    loadVehicles();
+  } else {
+    busSummary.textContent = "TheBus doesn't share live train locations, so Skyline shows stations and arrival times.";
+  }
 }
 
 async function handlePosition(position) {
@@ -566,12 +719,14 @@ function handleKeydown(event) {
   if (event.key === 'Escape' && !mapSheet.hidden) closeSheet();
 }
 
+// Hidden tabs don't poll. Coming back refreshes right away, since everything is likely stale.
 function handleVisibilityChange() {
-  if (!arrivalsPoller) return;
   if (document.hidden) {
-    arrivalsPoller.pause();
+    arrivalsPoller?.pause();
+    clearTimeout(vehiclesTimer);
   } else {
-    arrivalsPoller.refresh();
+    arrivalsPoller?.refresh();
+    if (hasLiveVehicles()) loadVehicles();
   }
 }
 
