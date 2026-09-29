@@ -1,9 +1,15 @@
 const { validationResult, matchedData } = require('express-validator');
 const Route = require('../model/Route');
 
-// Rail first, then buses in the order riders expect (1, 1L, 2, … 42 … A LINE, C, W1)
+function startsWithNumber(name) {
+  return '0123456789'.includes(name.charAt(0));
+}
+
+// Skyline first, then letter routes (A LINE, C, E, PH1 … W3), then number routes (1, 1L, 2 … 42 …).
+// Each group keeps the natural order riders expect: 2 before 10, 84 before 84A.
 function compareForList(a, b) {
   if (a.mode !== b.mode) return a.mode === 'rail' ? -1 : 1;
+  if (startsWithNumber(a.name) !== startsWithNumber(b.name)) return startsWithNumber(a.name) ? 1 : -1;
   return Route.compareNames(a.name, b.name);
 }
 
