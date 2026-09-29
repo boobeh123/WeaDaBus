@@ -904,6 +904,27 @@ Map
   stroke-dasharray: 1 10;
 }
 
+/* The flow: light dashes gliding along the selected line in the direction buses travel.
+   It plays 4 times (about 6 seconds) when a route opens or the direction changes, then
+   mapView.js removes it. It only animates the dash offset of one thin line, and it never loops forever. */
+.routeFlow {
+  stroke: var(--colorSurface);
+  stroke-dasharray: 6 14;
+  stroke-linecap: round;
+  animation: routeFlow 1.5s linear 4;
+}
+
+/* The dash pattern repeats every 20px, so sliding 200px moves it smoothly with no jump between passes */
+@keyframes routeFlow {
+  from {
+    stroke-dashoffset: 200;
+  }
+
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
 /* Each direction's color, used by its button, the stop timeline, and the line legend.
    The first direction uses the route's color; the second is orange. */
 .sheetRoute {
@@ -1131,6 +1152,49 @@ Map
 
 .busMarker.isOtherDirection .busBadge {
   opacity: 0.5;
+}
+
+/* Sonar: one ring that grows from a bus and fades when it reports a new position.
+   It only animates size and transparency, which phones handle on the graphics chip.
+   z-index -1 keeps the ring behind the badge. mapView.js adds isPinging. */
+.busMarker::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: -1;
+  width: 3.5rem;
+  height: 3.5rem;
+  border: 3px solid var(--routeColor, var(--colorPrimary));
+  border-radius: 50%;
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, -50%) scale(0.8);
+}
+
+.busMarker.isDirectionB::before {
+  border-color: var(--colorDirectionB);
+}
+
+.busMarker.isPinging::before {
+  animation: busPing 1.4s ease-out 1;
+}
+
+/* The ring starts about the badge's width, so it's visible as soon as it grows past it */
+@keyframes busPing {
+  0% {
+    opacity: 0.9;
+    transform: translate(-50%, -50%) scale(0.8);
+  }
+
+  70% {
+    opacity: 0.4;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(2);
+  }
 }
 
 /* Zoomed out, buses crowd together downtown, so they show just the glyph.
