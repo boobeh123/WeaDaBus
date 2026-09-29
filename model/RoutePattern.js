@@ -15,6 +15,8 @@ const RoutePatternSchema = new mongoose.Schema({
   },
   stopIds: { type: [Number], default: [] }, // Stops in the order the bus reaches them
   tripCount: { type: Number, required: true },
+  // Every GTFS trip on this pattern. A live bus's <trip> is one of these, which gives its direction.
+  tripIds: { type: [String], default: [] },
 });
 
 module.exports = mongoose.model('RoutePattern', RoutePatternSchema);
