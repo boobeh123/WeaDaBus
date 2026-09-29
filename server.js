@@ -49,6 +49,7 @@ app.use('/vendor/leaflet', express.static(path.join(__dirname, 'node_modules/lea
 // 6. Routes
 app.use('/', require('./routes/homeRoutes'));
 app.use('/stops', require('./routes/stopRoutes'));
+app.use('/routes', require('./routes/routeRoutes'));
 app.use('/api', require('./routes/apiRoutes'));
 
 // 7. 404: after all routes
