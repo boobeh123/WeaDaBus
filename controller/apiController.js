@@ -117,6 +117,49 @@ exports.getRouteDetails = async (req, res) => {
   });
 };
 
+// GET /api/routes/:slug/vehicles: live buses on one route, polled by mapView.js every 30 seconds.
+// A bus's trip ID names its route and direction. If the trip isn't in our GTFS copy (say TheBus
+// published a new feed we haven't imported), fall back to the route name with direction unknown.
+exports.getRouteVehicles = async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ error: 'Invalid route.' });
+  }
+
+  const route = await Route.findOne({ slug: matchedData(req).slug }).lean();
+  if (!route) {
+    return res.status(404).json({ error: 'Route not found.' });
+  }
+
+  const patterns = await RoutePattern.find({ routeId: route.routeId }).select('direction tripIds').lean();
+  const directionByTrip = new Map(
+    patterns.flatMap((pattern) => pattern.tripIds.map((tripId) => [tripId, pattern.direction]))
+  );
+
+  let live;
+  try {
+    live = await theBus.getVehicles();
+  } catch (err) {
+    console.error('TheBus vehicles failed:', err);
+    return res.status(502).json({ error: "TheBus isn't responding right now." });
+  }
+
+  const vehicles = live.vehicles
+    .filter((vehicle) => directionByTrip.has(vehicle.trip) || vehicle.routeName === route.shortName)
+    .map((vehicle) => ({
+      number: vehicle.number,
+      lat: vehicle.lat,
+      lon: vehicle.lon,
+      direction: directionByTrip.get(vehicle.trip) ?? null,
+      headsign: vehicle.headsign,
+      adherenceMinutes: vehicle.adherenceMinutes,
+      reportedSecondsAgo: vehicle.reportedSecondsAgo,
+    }));
+
+  res.set('Cache-Control', 'no-store'); // Live positions; the server already caches for 30 seconds
+  res.json({ updatedAt: live.updatedAt, vehicles });
+};
+
 // GET /api/stops/nearby?lat=&lon=: the closest stops to the rider, with walking-line distance
 exports.getNearbyStops = async (req, res) => {
   const errors = validationResult(req);
