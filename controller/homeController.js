@@ -1,6 +1,6 @@
 // GET /: the Nearby tab, a full-screen map of Oʻahu
 exports.getMap = async (req, res) => {
-  res.render('map', { title: null, activeTab: 'nearby' });
+  res.render('map', { title: null, activeTab: 'nearby', route: null });
 };
 
 // GET /search: the Search tab, looking up a stop by the number on its sign
