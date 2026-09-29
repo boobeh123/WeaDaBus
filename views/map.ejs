@@ -73,6 +73,7 @@
           <button class="directionButton" type="button" aria-pressed="false"></button>
         </div>
         <p class="sheetNote routeHint">The solid line is this direction. The dotted line is the trip back.</p>
+        <p class="busSummary" role="status">Looking for buses on this route…</p>
         <ol class="routeStopList"></ol>
       </div>
 
@@ -101,6 +102,20 @@
         </button>
       </li>
     </template>
+
+    <% if (route) { %>
+    <%# A live bus on the map: mapView.js fills in the number and places it %>
+    <template class="busTemplate">
+      <span class="busBadge">
+        <svg class="busGlyph" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M5 17V6a3 3 0 0 1 3-3h8a3 3 0 0 1 3 3v11z"/>
+          <path d="M5 11h14"/>
+          <path d="M7 17v3M17 17v3"/>
+        </svg>
+        <span class="busNumber"></span>
+      </span>
+    </template>
+    <% } %>
 
     <template class="routeStopTemplate">
       <li class="routeStopItem">
