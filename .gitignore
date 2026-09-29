@@ -5,3 +5,4 @@ config/.env
 !.env.example
 WebServicesAPI.md
 node_modules
+VERIFY.md
