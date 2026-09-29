@@ -79,6 +79,12 @@ let selectedDirection = null;
 const busMarkers = new Map(); // bus number -> Leaflet marker
 let vehiclesTimer = null;
 
+// Created by createMap() once the page and its stylesheets have loaded (see start())
+let map = null;
+let routeLines = null;
+let stopPins = null;
+let busLayer = null;
+
 /**************************************************************
 Helpers
 ***************************************************************/
@@ -427,34 +433,36 @@ async function fetchNearbyStops(lat, lon) {
 /**************************************************************
 Map setup
 ***************************************************************/
-const map = L.map(mapElement, {
-  // Route pages don't limit panning. On phones the sheet covers the bottom of the map, so fitting
-  // a south-shore route into the space above it moves the map's center out over the ocean.
-  maxBounds: routeSlug ? null : PAN_LIMIT_BOUNDS,
-  maxBoundsViscosity: 1,
-  minZoom: 9,
-  zoomSnap: 0.25, // Lets the opening view fit Oʻahu snugly on any screen size
-  zoomControl: false,
-});
+// Only call this once the stylesheets have loaded: see start()
+function createMap() {
+  map = L.map(mapElement, {
+    // Route pages don't limit panning. On phones the sheet covers the bottom of the map, so fitting
+    // a south-shore route into the space above it moves the map's center out over the ocean.
+    maxBounds: routeSlug ? null : PAN_LIMIT_BOUNDS,
+    maxBoundsViscosity: 1,
+    minZoom: 9,
+    zoomSnap: 0.25, // Lets the opening view fit Oʻahu snugly on any screen size
+    zoomControl: false,
+  });
 
-L.control.zoom({ position: 'topright' }).addTo(map);
+  L.control.zoom({ position: 'topright' }).addTo(map);
 
-L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  maxZoom: 19,
-  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-  // OpenStreetMap's tile policy blocks browser requests with no Referer, and helmet's
-  // Referrer-Policy (no-referrer) strips it site-wide. Tiles alone send our origin only,
-  // never the page path, so nothing else about the rider is shared.
-  referrerPolicy: 'strict-origin-when-cross-origin',
-}).addTo(map);
-map.attributionControl.addAttribution(
-  'Route and arrival data provided by permission of Oahu Transit Services, Inc'
-);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    // OpenStreetMap's tile policy blocks browser requests with no Referer, and helmet's
+    // Referrer-Policy (no-referrer) strips it site-wide. Tiles alone send our origin only,
+    // never the page path, so nothing else about the rider is shared.
+    referrerPolicy: 'strict-origin-when-cross-origin',
+  }).addTo(map);
+  map.attributionControl.addAttribution(
+    'Route and arrival data provided by permission of Oahu Transit Services, Inc'
+  );
 
-const routeLines = L.layerGroup().addTo(map); // Leaflet draws lines in a pane under the stop pins
-const stopPins = L.featureGroup().addTo(map);
-const busLayer = L.layerGroup().addTo(map); // Route mode only
-map.fitBounds(OAHU_BOUNDS);
+  routeLines = L.layerGroup().addTo(map); // Leaflet draws lines in a pane under the stop pins
+  stopPins = L.featureGroup().addTo(map);
+  busLayer = L.layerGroup().addTo(map); // Route mode only
+}
 
 /**************************************************************
 Main logic
@@ -681,7 +689,8 @@ function handlePositionError(err) {
 }
 
 function handleLocateClick() {
-  if (locateButton.getAttribute('aria-disabled') === 'true') return;
+  // The map only exists once the page has loaded (see start())
+  if (!map || locateButton.getAttribute('aria-disabled') === 'true') return;
   showMapMessage('');
 
   if (!('geolocation' in navigator)) {
@@ -757,12 +766,29 @@ function handleVisibilityChange() {
   }
 }
 
+// WebKit (Safari, and every browser on an iPhone) can run this script before the stylesheets
+// finish loading. If Leaflet creates the map then, it finds the map element unstyled, stamps an
+// inline position: relative on it, and the map collapses to zero height for good. So the map is
+// created, placed, and filled only after the page, stylesheets included, has loaded.
+function start() {
+  createMap();
+  map.on('zoomend', updatePinSize);
+  stopPins.on('click', handlePinClick);
+  stopPins.on('keypress', handlePinKeypress);
+  map.fitBounds(OAHU_BOUNDS);
+  updatePinSize();
+
+  if (routeSlug) {
+    loadRoute();
+  } else {
+    map.on('moveend', loadStopsInView);
+    loadStopsInView(); // Shows the "zoom in" hint for the opening island view
+  }
+}
+
 /**************************************************************
 Event listeners
 ***************************************************************/
-map.on('zoomend', updatePinSize);
-stopPins.on('click', handlePinClick);
-stopPins.on('keypress', handlePinKeypress);
 nearbyList.addEventListener('click', handleNearbyClick);
 sheetBack.addEventListener('click', handleBackClick);
 sheetClose.addEventListener('click', closeSheet);
@@ -771,15 +797,16 @@ document.addEventListener('visibilitychange', handleVisibilityChange);
 // iPhone Safari only shows :active (the pressed look on pins and buttons) when the page listens for touches
 document.addEventListener('touchstart', () => {}, { passive: true });
 
-updatePinSize();
-
 if (routeSlug) {
   routeSheetButton.addEventListener('click', handleRouteSheetButtonClick);
   routeStopList.addEventListener('click', handleRouteStopClick);
   directionButtons.forEach((button) => button.addEventListener('click', handleDirectionClick));
-  loadRoute();
 } else {
-  map.on('moveend', loadStopsInView);
   locateButton.addEventListener('click', handleLocateClick);
-  loadStopsInView(); // Shows the "zoom in" hint for the opening island view
+}
+
+if (document.readyState === 'complete') {
+  start();
+} else {
+  window.addEventListener('load', start, { once: true });
 }
