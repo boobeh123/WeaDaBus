@@ -85,6 +85,12 @@ At 48rem and wider, the tab bar becomes the top navigation and replaces the site
     - Buses heading the other way fade. Below zoom 14 they show only the bus glyph.
     - Bus details open as a Leaflet popup built with DOM methods, since the text comes from TheBus.
     - Skyline isn't polled, because the vehicle feed has no trains.
+  - **Animations:**
+    - **The flow.** `addFlow` in `mapView.js` draws a `.routeFlow` layer: light dashes that slide along the selected line 4 times, about 6 seconds in all, whenever a route opens or the direction changes. The dashes follow the direction of travel because paths are stored in driving order. On `animationend` the layer removes itself, so nothing keeps redrawing afterward. Never make it loop forever.
+    - **The bus ping.** `pingBus` gives each bus one sonar ring (`.isPinging`) when it first appears and again whenever it reports a new position.
+    - **Cost.** The flow animates `stroke-dashoffset` on one thin line, and the ping animates only `transform` and `opacity`.
+    - **Reduced motion.** The global reduced-motion rule turns both off.
+    - **Measured.** With the processor slowed 4×, frame rate was about 140 fps while they ran and about 144 fps afterward.
   - Route pages have no `maxBounds`. On phones the sheet covers the bottom 60% of the map, so fitting a south-shore route above it puts the map's center out over the ocean, and a pan limit would push the route under the sheet. Nearby keeps its limit, which its coordinate validators rely on.
 - **Failed TheBus calls don't reach the error handler.** The stop page shows a "TheBus isn't responding" message, and the API route returns a 502 with JSON.
 - **There are no sessions yet**, so an invalid or unknown stop number re-renders the Search page (`/search`) with the message instead of flashing and redirecting.
