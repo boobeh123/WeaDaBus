@@ -26,7 +26,7 @@ app.set('view engine', 'ejs');
 // The site's public address, for canonical links and link previews (views/partials/head.ejs).
 // Set SITE_URL when the site gets a custom domain. It is never read from the request's Host
 // header, which callers can fake.
-const siteUrl = process.env.SITE_URL || 'https://weadabus.up.railway.app';
+const siteUrl = process.env.SITE_URL || 'https://weadabus.com';
 app.locals.siteUrl = siteUrl.endsWith('/') ? siteUrl.slice(0, -1) : siteUrl;
 
 // 2. Security headers: must come before everything else
