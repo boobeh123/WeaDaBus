@@ -3,6 +3,8 @@
 
   <p align="center">This is a full-stack web application that uses Oahu Transit Services' Web Services API to show real-time TheBus arrivals and bus locations, plus Skyline rail stations and schedules.</p>
 
+  <p align="center">New domain: https://weadabus.com/</p>
+  <br /><br />
   <p align="center">Deployed on Railway: https://weadabus.up.railway.app/</p>
 </p>
 
