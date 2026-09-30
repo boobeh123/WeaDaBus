@@ -75,6 +75,7 @@ At 48rem and wider, the tab bar becomes the top navigation and replaces the site
     - Below zoom 14 (`isZoomedOut`), small dots, so they don't hide a route's line. The selected stop keeps its full size.
     - From 14 to 16, plain dots.
     - At 16 and up (`isStreetLevel`), 28 px stop markers with an icon: a stop sign, or a train for Skyline. The icons come from templates in `views/map.ejs`.
+  - **The sheet scrolls as a whole.** `.sheetBody` is the scrolling element, not the stop list, and the header above it stays pinned. Tapping `.sheetHeading` scrolls `.sheetBody` back to the top (smooth, or instant with reduced motion).
   - **Tap and hover feedback.** Pins, direction buttons, and stop rows have a pressed (`:active`) state. iPhone Safari only applies `:active` when the page listens for touches, so `mapView.js` adds an empty passive `touchstart` listener. Hover effects sit in `@media (hover: hover)`, so they don't stay stuck after a tap on phones.
 - **Routes** (`controller/routeController.js`, `views/routes.ejs`, `public/js/routesList.js`):
   - `GET /routes` server-renders every route, with a client-side filter box. The order is Skyline, then letter routes (A LINE, C, E, PH1 … W3), then number routes, each group in natural order. The sort is `compareForList` in `routeController.js`.
