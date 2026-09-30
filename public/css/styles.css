@@ -224,6 +224,11 @@ Components
   line-height: 1;
 }
 
+/* Long route names (SKYLINE) would make the badge about 100px wide and squeeze the headsign on phones */
+.routeBadge.isLongName {
+  font-size: var(--fontSizeSm);
+}
+
 .arrivalDetails {
   min-width: 0;
 }
