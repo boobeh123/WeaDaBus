@@ -64,7 +64,7 @@ public/                 CSS and browser JavaScript
 2. Create a `.env` file using the variable names in `.env.example`:
    * `WEBSERVICESKEY`: a TheBus API key. Register for one at https://hea.thebus.org/api_info.asp.
    * `DB_STRING`: a MongoDB connection string.
-   * `PORT` and `NODE_ENV` are optional when running locally.
+   * `PORT`, `NODE_ENV`, and `SITE_URL` are optional when running locally. `SITE_URL` is the site's public address, used for canonical links and link previews. It defaults to https://weadabus.up.railway.app.
 3. Run `npm run import:gtfs` to load TheBus's stops and routes into MongoDB.
 4. Run `npm run dev` and open http://localhost:3000.
 
