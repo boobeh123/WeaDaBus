@@ -505,6 +505,27 @@ Routes
   background: var(--colorSurface);
 }
 
+/* "Can't find your bus?" at the bottom of the routes list, the way to the stop number search */
+.searchPrompt {
+  display: grid;
+  justify-items: start;
+  gap: var(--spaceSm);
+  padding: var(--spaceLg) 0 var(--spaceMd);
+}
+
+.searchPromptTitle {
+  font-size: var(--fontSizeLg);
+}
+
+.searchPromptText {
+  color: var(--colorTextMuted);
+}
+
+.searchPrompt .button {
+  gap: var(--spaceSm);
+  margin-top: var(--spaceXs);
+}
+
 /**************************************************************
 Stop arrivals
 ***************************************************************/
