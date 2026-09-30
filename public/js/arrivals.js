@@ -12,6 +12,7 @@ function buildArrivalCard(template, arrival) {
   const isNow = arrival.minutesAway <= 0;
 
   card.dataset.status = arrival.status;
+  card.querySelector('.routeBadge').classList.toggle('isLongName', arrival.route.length > 4);
   card.querySelector('.routeName').textContent = arrival.route;
   card.querySelector('.arrivalHeadsign').textContent = arrival.headsign;
   card.querySelector('.arrivalStatus').textContent = arrival.statusLabel;
