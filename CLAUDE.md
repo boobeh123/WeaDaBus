@@ -8,7 +8,7 @@ Wea Da Bus is a mobile-first web app that shows live arrival times from TheBus (
 
 - `npm run dev` runs the server with `node --watch` on http://localhost:3000. `npm start` runs it without watching.
 - `npm run import:gtfs` downloads TheBus's GTFS schedule and replaces the `stops`, `routes`, and `routepatterns` collections. Re-run it when TheBus publishes a new feed. The script prints the current feed's end date.
-- `.env` needs `WEBSERVICESKEY` (the TheBus API key) and `DB_STRING` (MongoDB). The server exits at startup if either is missing or the database connection fails. `.env.example` lists every variable.
+- `.env` needs `WEBSERVICESKEY` (the TheBus API key) and `DB_STRING` (MongoDB). The server exits at startup if either is missing or the database connection fails. `SITE_URL` is optional (see Page metadata). `.env.example` lists every variable.
 - There is no build step, linter, or test suite.
 
 ### Build order
@@ -51,6 +51,12 @@ At 48rem and wider, the tab bar becomes the top navigation and replaces the site
 - **Stops are checked in MongoDB before TheBus is called.** The stop page, the stop-number form, and the arrivals API all do this. The API can't tell a nonexistent stop from one with no buses coming, and the check saves quota.
 - **Arrival cards come from one partial, rendered in three places.** `views/partials/arrivalCard.ejs` renders them on the server for `GET /stops/:stopId`, and also renders an empty copy inside a `<template>` on the stop page and the map. `public/js/arrivals.js` fills clones of that template and provides `createArrivalsPoller`. The poller calls `GET /api/stops/:stopId/arrivals` every 60 seconds; each page pauses it while the tab is hidden and stops it when the stop is left. If you change the card markup, keep the class names in `buildArrivalCard` in sync. Route names over 4 characters (only `SKYLINE` today) get `isLongName` on the badge in both places, for a smaller font, so the badge doesn't squeeze the headsign on phones.
 - **Icons.** `public/favicon.svg` is the source icon: the bus glyph on the primary teal. `public/favicon.ico` (32 px) and `public/apple-touch-icon.png` (180 px, full-bleed, because iOS rounds the corners) are PNGs rendered from it. If you change the SVG, regenerate both. Keep XML comments in the SVG free of `--`, or the file won't parse.
+- **Page metadata** (`views/partials/head.ejs`).
+  - Controllers pass `canonicalPath` and `metaDescription` on successful renders only, so error pages get no canonical link and no `og:url`.
+  - `head.ejs` builds absolute URLs from `app.locals.siteUrl`. `server.js` takes it from the optional `SITE_URL` variable (default `https://weadabus.up.railway.app`), never from the request's Host header, which callers can fake.
+  - The Open Graph title is the page title without the " | Wea Da Bus" suffix, because `og:site_name` carries the name.
+  - The share image is `public/img/shareCard.png` (1200×630, drawn once in headless Edge). `og:image` must stay an absolute URL, and `og:image:width` and `height` must match the file.
+  - Helmet sends `Cross-Origin-Resource-Policy: same-origin` on every response. Social crawlers fetch the image on their own servers, so this should not matter. If a link preview ever shows without its image, send `cross-origin` for that one file.
 - **Next bus.** Every arrival list puts the first bus that isn't canceled at the top, under "Next bus arriving to this stop:" (`.nextBusLabel`), with a divider below that card. `services/theBus.js` orders the list that way, and `putNextBusFirst` in `arrivals.js` does it again after a route page filters by route. The label hides when every bus is canceled.
 - **Client scripts are plain deferred scripts, not modules**, listed per page through `head.ejs`'s `scripts` local. They share one global scope: `arrivals.js` defines globals used by `stopArrivals.js` and `mapView.js`, so top-level names must not collide across the scripts a page loads.
 - **The map** (`GET /`, `views/map.ejs`, `public/js/mapView.js`):
