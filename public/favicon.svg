@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <title>Wea Da Bus</title>
+  <!-- Teal is the app's primary color. The bus is the same glyph as the live bus badges on the map. -->
+  <rect width="24" height="24" rx="5" fill="#0b5d7a"/>
+  <g transform="translate(2.4 2.4) scale(0.8)" fill="none" stroke="#ffffff" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M5 17V6a3 3 0 0 1 3-3h8a3 3 0 0 1 3 3v11z"/>
+    <path d="M5 11h14"/>
+    <path d="M7 17v3M17 17v3"/>
+  </g>
+</svg>
