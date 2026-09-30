@@ -1,12 +1,46 @@
-<%# Optional locals: styles and scripts (arrays of URLs) for page-specific files, bodyClass %>
+<%# Locals: title, metaDescription, canonicalPath (indexable pages only, like /stops/4523; error pages leave it out), styles and scripts (arrays of URLs for page-specific files), bodyClass. siteUrl comes from server.js. -%>
+<%
+  const ogTitle = locals.title || 'Wea Da Bus';
+  const description = locals.metaDescription || 'Live TheBus arrival times for Oʻahu bus stops.';
+  const canonicalUrl = locals.canonicalPath ? siteUrl + canonicalPath : null;
+-%>
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="description" content="Live TheBus arrival times for Oʻahu bus stops.">
+  <meta name="description" content="<%= description %>">
+  <%# Colors the phone's browser bar to match the header %>
   <meta name="theme-color" content="#0b5d7a" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#0f2a3a" media="(prefers-color-scheme: dark)">
+
+  <meta name="author" content="Bobby Asakawa">
+  <meta name="robots" content="index, follow">
+  <% if (canonicalUrl) { %>
+  <link rel="canonical" href="<%= canonicalUrl %>">
+  <% } %>
+
+  <%# Favicon: /favicon.ico is found without a tag; the SVG stays sharp at any size %>
+  <link rel="icon" href="/favicon.ico" sizes="32x32">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+
+  <%# The preview card when a link is shared (iMessage, Facebook, Slack, X). og:image must be an absolute URL. %>
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Wea Da Bus">
+  <meta property="og:locale" content="en_US">
+  <% if (canonicalUrl) { %>
+  <meta property="og:url" content="<%= canonicalUrl %>">
+  <% } %>
+  <meta property="og:title" content="<%= ogTitle %>">
+  <meta property="og:description" content="<%= description %>">
+  <meta property="og:image" content="<%= siteUrl %>/img/shareCard.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Wea Da Bus: a white bus on a teal background, with the text Live TheBus arrivals for Oʻahu">
+  <%# X reads the title, description, and image from the og: tags above %>
+  <meta name="twitter:card" content="summary_large_image">
+
   <title><%= locals.title ? `${title} | Wea Da Bus` : 'Wea Da Bus' %></title>
   <link rel="stylesheet" href="/css/normalize.css">
   <% (locals.styles || []).forEach((href) => { %>
