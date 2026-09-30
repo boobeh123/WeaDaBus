@@ -18,7 +18,7 @@ Features are built one at a time, in this order:
 1. Stop arrivals page (`/stops/:stopId`). Done.
 2. The map, in four steps:
    - 2a. GTFS import and models, plus stop names on the stop page. Done.
-   - 2b. A full-screen Leaflet map of Oʻahu with a bottom tab bar (Nearby · Search), stop pins for the visible area, "Show stops near me", and a sheet of live arrivals when a pin is tapped. Done.
+   - 2b. A full-screen Leaflet map of Oʻahu with a bottom tab bar (Nearby · Routes; Search moved to the bottom of the Routes page, and its pages keep Routes highlighted), stop pins for the visible area, "Show stops near me", and a sheet of live arrivals when a pin is tapped. Done.
    - 2c-1. Routes: the Routes tab (`/routes`, with a filter box) and route maps (`/routes/:slug`). A route map has a solid line for the selected direction, a dotted, faded line for the return, a direction toggle labeled by headsign, the stops in order, and arrivals filtered to that route. Done.
    - 2c-2. Live buses on the route map that glide to each new position. Done.
    - 2d. Search by stop name, route, or stop number.
