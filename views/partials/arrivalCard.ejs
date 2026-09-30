@@ -1,6 +1,7 @@
 <%# Also rendered empty inside a <template> that public/js/stopArrivals.js clones, so keep its class names in sync %>
 <li class="arrivalCard" data-status="<%= arrival.status %>">
-  <span class="routeBadge"><span class="visuallyHidden">Route </span><span class="routeName"><%= arrival.route %></span></span>
+  <%# Names over 4 characters (SKYLINE) get a smaller font so the badge doesn't squeeze the headsign; buildArrivalCard does the same %>
+  <span class="routeBadge<% if (arrival.route.length > 4) { %> isLongName<% } %>"><span class="visuallyHidden">Route </span><span class="routeName"><%= arrival.route %></span></span>
   <div class="arrivalDetails">
     <p class="arrivalHeadsign"><%= arrival.headsign %></p>
     <p class="arrivalMeta">
