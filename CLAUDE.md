@@ -53,7 +53,7 @@ At 48rem and wider, the tab bar becomes the top navigation and replaces the site
 - **Icons.** `public/favicon.svg` is the source icon: the bus glyph on the primary teal. `public/favicon.ico` (32 px) and `public/apple-touch-icon.png` (180 px, full-bleed, because iOS rounds the corners) are PNGs rendered from it. If you change the SVG, regenerate both. Keep XML comments in the SVG free of `--`, or the file won't parse.
 - **Page metadata** (`views/partials/head.ejs`).
   - Controllers pass `canonicalPath` and `metaDescription` on successful renders only, so error pages get no canonical link and no `og:url`.
-  - `head.ejs` builds absolute URLs from `app.locals.siteUrl`. `server.js` takes it from the optional `SITE_URL` variable (default `https://weadabus.up.railway.app`), never from the request's Host header, which callers can fake.
+  - `head.ejs` builds absolute URLs from `app.locals.siteUrl`. `server.js` takes it from the optional `SITE_URL` variable (default `https://weadabus.com`), never from the request's Host header, which callers can fake.
   - The Open Graph title is the page title without the " | Wea Da Bus" suffix, because `og:site_name` carries the name.
   - The share image is `public/img/shareCard.png` (1200×630, drawn once in headless Edge). `og:image` must stay an absolute URL, and `og:image:width` and `height` must match the file.
   - Helmet sends `Cross-Origin-Resource-Policy: same-origin` on every response. Social crawlers fetch the image on their own servers, so this should not matter. If a link preview ever shows without its image, send `cross-origin` for that one file.
