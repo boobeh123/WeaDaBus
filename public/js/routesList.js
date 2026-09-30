@@ -8,6 +8,7 @@ const routeItems = [...document.querySelectorAll('.routeItem')];
 const routeBadges = [...document.querySelectorAll('.routeList .routeBadge')];
 const routeCount = document.querySelector('.routeCount');
 const routeEmpty = document.querySelector('.routeEmpty');
+const searchPrompt = document.querySelector('.searchPrompt');
 
 /**************************************************************
 Helpers
@@ -35,6 +36,8 @@ function handleFilterInput() {
     item.hidden = !matches.includes(item);
   });
   routeEmpty.hidden = matches.length > 0;
+  // Shown for the full list and when nothing matches; hidden while a few matches sit above it
+  searchPrompt.hidden = query.length > 0 && matches.length > 0;
   routeCount.textContent = describeCount(matches.length, query.length > 0);
 }
 
