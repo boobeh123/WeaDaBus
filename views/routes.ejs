@@ -33,6 +33,19 @@
   </ul>
 
   <p class="routeEmpty" hidden>No routes match. Try a route number like 42, or a place like Waikiki.</p>
+
+  <%# Search lives here, not in the tab bar. routesList.js hides it while a filter narrows the list to a few routes. %>
+  <section class="searchPrompt" aria-labelledby="searchPromptTitle">
+    <h2 class="searchPromptTitle" id="searchPromptTitle">Can't find your bus listed above?</h2>
+    <p class="searchPromptText">Search by the stop number on your bus stop sign.</p>
+    <a class="button buttonSecondary" href="/search">
+      <svg class="buttonIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="6.5"/>
+        <path d="m20 20-4.35-4.35"/>
+      </svg>
+      Search by stop number
+    </a>
+  </section>
 </main>
 
 <%- include('partials/footer') %>
