@@ -60,5 +60,7 @@ exports.getStop = async (req, res) => {
     stopId,
     stopName: stopInfo.name,
     stop,
+    canonicalPath: `/stops/${stopId}`,
+    metaDescription: `Live bus arrivals at ${stopInfo.name} (stop ${stopId}).`,
   });
 };
