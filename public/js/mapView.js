@@ -19,6 +19,7 @@ const sheetBody = document.querySelector('.sheetBody');
 const sheetBack = document.querySelector('.sheetBack');
 const sheetBackLabel = document.querySelector('.sheetBackLabel');
 const sheetClose = document.querySelector('.sheetClose');
+const sheetHeading = document.querySelector('.sheetHeading');
 const sheetEyebrow = document.querySelector('.sheetEyebrow');
 const sheetTitle = document.querySelector('.sheetTitle');
 const sheetNearby = document.querySelector('.sheetNearby');
@@ -765,6 +766,11 @@ function handleDirectionClick(event) {
   sheetBody.scrollTop = 0;
 }
 
+// Tapping the sheet's title area scrolls back up. The sheet scrolls as a whole (.sheetBody), not the list.
+function handleSheetHeadingClick() {
+  sheetBody.scrollTo({ top: 0, behavior: reducedMotion.matches ? 'auto' : 'smooth' });
+}
+
 function handleBackClick() {
   if (backTo === 'route') {
     showRouteSheet({ returnToStopId: selectedStopId });
@@ -818,6 +824,7 @@ Event listeners
 nearbyList.addEventListener('click', handleNearbyClick);
 sheetBack.addEventListener('click', handleBackClick);
 sheetClose.addEventListener('click', closeSheet);
+sheetHeading.addEventListener('click', handleSheetHeadingClick);
 document.addEventListener('keydown', handleKeydown);
 document.addEventListener('visibilitychange', handleVisibilityChange);
 // iPhone Safari only shows :active (the pressed look on pins and buttons) when the page listens for touches
