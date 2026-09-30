@@ -7,7 +7,7 @@ exports.getMap = async (req, res) => {
 exports.getSearch = async (req, res) => {
   res.render('search', {
     title: 'Search',
-    activeTab: 'search',
+    activeTab: 'routes', // Search is reached from the bottom of the Routes tab
     error: null,
     canonicalPath: '/search',
     metaDescription: 'Look up live TheBus arrivals by the stop number on the sign.',
