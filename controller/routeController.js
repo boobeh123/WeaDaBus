@@ -33,6 +33,8 @@ exports.getRoutes = async (req, res) => {
     title: 'Routes',
     activeTab: 'routes',
     routes: routes.map(toListItem).sort(compareForList),
+    canonicalPath: '/routes',
+    metaDescription: `Browse all ${routes.length} TheBus and Skyline routes on Oʻahu.`,
   });
 };
 
@@ -53,5 +55,11 @@ exports.getRoute = async (req, res) => {
     title: `Route ${name}`,
     activeTab: 'routes',
     route: { slug, name, description },
+    canonicalPath: `/routes/${slug}`,
+    // Skyline has no live train positions, so its description leaves out live locations
+    metaDescription:
+      route.mode === 'rail'
+        ? `${description}: map of the line and its stations.`
+        : `Route ${name} (${description}): map, stops in order, and live bus locations.`,
   });
 };
