@@ -9,7 +9,7 @@ exports.getStopSearch = async (req, res) => {
     // No sessions yet, so re-render the form with the message instead of flashing and redirecting
     return res
       .status(400)
-      .render('search', { title: 'Search', activeTab: 'search', error: errors.array()[0].msg });
+      .render('search', { title: 'Search', activeTab: 'routes', error: errors.array()[0].msg });
   }
 
   const { stop } = matchedData(req);
@@ -18,7 +18,7 @@ exports.getStopSearch = async (req, res) => {
   if (!(await Stop.exists({ stopId: stop }))) {
     return res.status(404).render('search', {
       title: 'Search',
-      activeTab: 'search',
+      activeTab: 'routes',
       error: `We couldn't find stop ${stop}. Check the number on the bus stop sign.`,
     });
   }
