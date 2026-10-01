@@ -34,7 +34,8 @@ app.use(
   helmet({
     contentSecurityPolicy: {
       directives: {
-        imgSrc: ["'self'", 'data:', 'https://tile.openstreetmap.org'], // Allow OpenStreetMap map tiles
+        // OpenStreetMap map tiles, and the X profile picture on the home page's posts
+        imgSrc: ["'self'", 'data:', 'https://tile.openstreetmap.org', 'https://pbs.twimg.com'],
         upgradeInsecureRequests: isProduction ? [] : null, // Local dev runs on plain HTTP
       },
     },
