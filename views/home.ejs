@@ -1,0 +1,35 @@
+<%- include('partials/head', { title }) %>
+<%- include('partials/header') %>
+<%- include('partials/tabBar') %>
+
+<main class="homePage container">
+  <h1 class="homeTitle">What's new</h1>
+  <p class="homeIntro">The latest from the Hawaiʻi Department of Transportation (HDOT).</p>
+
+  <%# scripts/fetchNews.js saves these every 15 minutes. Every link goes to hidot.hawaii.gov. %>
+  <section class="newsSection" aria-labelledby="newsSectionTitle">
+    <h2 id="newsSectionTitle">News releases</h2>
+
+    <% if (articles.length) { %>
+    <ul class="newsList">
+      <% articles.forEach((article) => { %>
+      <li>
+        <article class="newsCard">
+          <h3 class="newsCardTitle"><a href="<%= article.url %>"><%= article.title %></a></h3>
+          <time class="newsCardDate" datetime="<%= article.dateTime %>"><%= article.date %></time>
+          <% if (article.excerpt) { %>
+          <p class="newsCardExcerpt"><%= article.excerpt %></p>
+          <% } %>
+        </article>
+      </li>
+      <% }) %>
+    </ul>
+    <% } else { %>
+    <p class="newsEmpty">HDOT's latest news releases will show up here soon.</p>
+    <% } %>
+
+    <a class="newsMoreLink" href="https://hidot.hawaii.gov/blog/category/news/">More news from HDOT ›</a>
+  </section>
+</main>
+
+<%- include('partials/footer') %>
