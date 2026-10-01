@@ -1,7 +1,10 @@
 // Imports TheBus's GTFS schedule into MongoDB: stops, routes, and route patterns.
-// Run with `npm run import:gtfs` whenever TheBus publishes a new feed (feed_info.txt
-// says when the current one ends). Everything is parsed before the database is touched,
-// so a bad download leaves the existing data in place.
+// Railway runs it every day at 3 AM Hawaii time (`npm run import:gtfs`, the gtfs-job service).
+// Most days TheBus answers that the file hasn't changed, and the run ends without downloading.
+// A new schedule is imported on the day it starts; `npm run import:gtfs -- --force` imports
+// right away. Everything is parsed before the database is touched, and each collection's new
+// data replaces the old in a single rename, so a bad download leaves the existing data in place
+// and pages never see an empty collection.
 require('dotenv').config();
 
 const { Readable } = require('stream');
@@ -12,11 +15,15 @@ const connectDB = require('../config/database');
 const Stop = require('../model/Stop');
 const Route = require('../model/Route');
 const RoutePattern = require('../model/RoutePattern');
+const FeedImport = require('../model/FeedImport');
 
 const GTFS_URL = 'https://www.thebus.org/transitdata/production/google_transit.zip';
 const GTFS_FILES = ['feed_info.txt', 'routes.txt', 'stops.txt', 'trips.txt', 'stop_times.txt', 'shapes.txt'];
 const ROUTE_MODES = { 1: 'rail', 3: 'bus' }; // GTFS route_type codes
 const CHUNK_SIZE = 64 * 1024;
+// A stuck download would hold up every later run, since Railway skips a run while one is going
+const DOWNLOAD_TIMEOUT_MS = 2 * 60 * 1000;
+const isForced = process.argv.includes('--force'); // npm run import:gtfs -- --force
 
 /**************************************************************
 Helpers
@@ -42,23 +49,45 @@ function formatGtfsDate(date) {
   return `${date.slice(0, 4)}-${date.slice(4, 6)}-${date.slice(6, 8)}`;
 }
 
+// Today's date in Hawaii as "20261001", to compare with the dates in feed_info.txt. Railway's
+// clock runs on UTC, which is already tomorrow from 2 PM in Hawaii. en-CA writes 2026-10-01.
+function getHawaiiDate() {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Pacific/Honolulu' }).format(new Date()).replaceAll('-', '');
+}
+
 // "A LINE" -> "a-line", "42" -> "42", "SKYLINE" -> "skyline"
 function toSlug(name) {
   return name.trim().toLowerCase().split(' ').join('-');
 }
 
-async function downloadFeed() {
-  console.log(`Downloading ${GTFS_URL}`);
-  const res = await fetch(GTFS_URL);
+// Downloads the schedule file, unless it hasn't changed since the last import. Sent the version
+// tag and date saved from that import, TheBus answers 304 Not Modified, and this returns null.
+async function downloadFeed(lastImport) {
+  const headers = {};
+  if (lastImport && !isForced) {
+    if (lastImport.etag) headers['If-None-Match'] = lastImport.etag;
+    if (lastImport.lastModified) headers['If-Modified-Since'] = lastImport.lastModified;
+  }
+
+  console.log(`Checking ${GTFS_URL}`);
+  const res = await fetch(GTFS_URL, { headers, signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS) });
+  const etag = res.headers.get('etag') || '';
+
+  // A server that ignores those headers sends the whole file, but the same version tag still means unchanged
+  if (res.status === 304 || (!isForced && etag && etag === lastImport?.etag)) {
+    await res.body?.cancel();
+    return null;
+  }
   if (!res.ok) throw new Error(`GTFS download failed with HTTP ${res.status}`);
 
+  console.log('Downloading the schedule');
   const zip = new Uint8Array(await res.arrayBuffer());
   const files = unzipSync(zip, { filter: (file) => GTFS_FILES.includes(file.name) });
 
   const missing = GTFS_FILES.filter((name) => !files[name]);
   if (missing.length) throw new Error(`GTFS feed is missing ${missing.join(', ')}`);
 
-  return files;
+  return { files, etag, lastModified: res.headers.get('last-modified') || '' };
 }
 
 /**************************************************************
@@ -196,24 +225,71 @@ function getMostCommonHeadsign(headsignCounts) {
 }
 
 /**************************************************************
-Main
+Saving
 ***************************************************************/
-async function saveCollection(Model, docs) {
-  await Model.deleteMany({});
-  await Model.insertMany(docs);
-  await Model.syncIndexes();
-  console.log(`  ${Model.modelName}: ${docs.length} saved`);
+// Builds a collection's new data in a copy ("stops_import") with the same schema and indexes.
+// The live collection stays untouched until swapIn renames the copy over it.
+async function buildCopy(Model, docs) {
+  const { db } = mongoose.connection;
+  const liveName = Model.collection.collectionName;
+  const copyName = `${liveName}_import`;
+
+  // A copy left behind by a run that crashed
+  if ((await db.listCollections({ name: copyName }).toArray()).length) await db.dropCollection(copyName);
+
+  // syncIndexes builds the indexes once the data is in, instead of Mongoose building them on load
+  const schema = Model.schema.clone();
+  schema.set('autoIndex', false);
+  schema.set('autoCreate', false);
+  const Copy = mongoose.model(`${Model.modelName}Import`, schema, copyName);
+
+  await Copy.insertMany(docs);
+  await Copy.syncIndexes();
+  console.log(`  ${Model.modelName}: ${docs.length} ready`);
+
+  return { copyName, liveName };
 }
 
+// Renames each copy over its live collection. A rename is a single step, so pages read the
+// old data right up to the swap and never see an empty collection.
+async function swapIn(copies) {
+  for (const { copyName, liveName } of copies) {
+    await mongoose.connection.db.renameCollection(copyName, liveName, { dropTarget: true });
+  }
+  console.log('  Swapped in the new schedule');
+}
+
+/**************************************************************
+Main
+***************************************************************/
 async function importGtfs() {
   // Connect first so a bad DB_STRING fails before the download
   await connectDB();
-  const files = await downloadFeed();
+  const lastImport = await FeedImport.findOne({ url: GTFS_URL }).lean();
+
+  const download = await downloadFeed(lastImport);
+  if (!download) {
+    console.log(`Schedule unchanged: feed ${lastImport?.feedVersion}, valid to ${lastImport?.endDate}`);
+    await mongoose.disconnect();
+    return;
+  }
+  const { files } = download;
 
   const feedInfo = await readFeedInfo(files['feed_info.txt']);
   console.log(
     `Feed ${feedInfo.feed_version}: valid ${formatGtfsDate(feedInfo.feed_start_date)} to ${formatGtfsDate(feedInfo.feed_end_date)}`
   );
+
+  // TheBus posts a new schedule about two weeks before it starts. Importing it early would
+  // replace the trip IDs that buses on the current schedule still report, and they'd lose their
+  // direction on route maps. So it waits for the schedule's first day, in Hawaii time.
+  if (!isForced && feedInfo.feed_start_date > getHawaiiDate()) {
+    console.log(
+      `The new schedule starts on ${formatGtfsDate(feedInfo.feed_start_date)}. Keeping the current one until then.`
+    );
+    await mongoose.disconnect();
+    return;
+  }
 
   const routes = await readRoutes(files['routes.txt']);
   const { stopsByCode, codeByGtfsId } = await readStops(files['stops.txt']);
@@ -278,9 +354,28 @@ async function importGtfs() {
   const routeDocs = [...routes.values()];
 
   console.log('Saving to MongoDB');
-  await saveCollection(Route, routeDocs);
-  await saveCollection(Stop, stopDocs);
-  await saveCollection(RoutePattern, patternDocs);
+  const copies = [
+    await buildCopy(Route, routeDocs),
+    await buildCopy(Stop, stopDocs),
+    await buildCopy(RoutePattern, patternDocs),
+  ];
+  await swapIn(copies);
+
+  // Saved so the next run can ask TheBus whether the file has changed
+  await FeedImport.updateOne(
+    { url: GTFS_URL },
+    {
+      $set: {
+        etag: download.etag,
+        lastModified: download.lastModified,
+        feedVersion: feedInfo.feed_version,
+        startDate: formatGtfsDate(feedInfo.feed_start_date),
+        endDate: formatGtfsDate(feedInfo.feed_end_date),
+        importedAt: new Date(),
+      },
+    },
+    { upsert: true }
+  );
 
   await mongoose.disconnect();
   console.log('GTFS import finished');
