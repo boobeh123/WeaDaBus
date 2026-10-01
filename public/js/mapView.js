@@ -418,7 +418,7 @@ function showBuses(vehicles) {
 // On a route page, only that route's buses; everywhere else, every bus at the stop
 function renderSheetArrivals(stop) {
   const arrivals = routeData
-    ? stop.arrivals.filter((arrival) => arrival.route === routeData.route.apiName)
+    ? stop.arrivals.filter((arrival) => arrival.apiRoute === routeData.route.apiName)
     : stop.arrivals;
   const hasArrivals = renderArrivalList(arrivalList, arrivalTemplate, arrivals, nextBusLabel);
   emptyMessage.hidden = hasArrivals;
