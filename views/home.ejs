@@ -3,20 +3,62 @@
 <%- include('partials/tabBar') %>
 
 <main class="homePage container">
-  <h1 class="homeTitle">What's new</h1>
+  <%# Hidden, like the map page's, so "Your recent stops" and "What's new" can both be section headings %>
+  <h1 class="visuallyHidden">Wea Da Bus</h1>
+
+  <% if (recentStops.length) { %>
+  <%# From the recentStops cookie (middleware/recentStops.js). Each stop links to its live arrivals. %>
+  <section class="recentStops" aria-labelledby="recentStopsTitle">
+    <h2 class="homeTitle" id="recentStopsTitle">Your recent stops</h2>
+    <% if (recentStopsUpdatedAt) { %>
+    <p class="homeIntro">Times as of <%= recentStopsUpdatedAt %>.</p>
+    <% } %>
+
+    <ul class="recentStopList">
+      <% recentStops.forEach((stop) => { %>
+      <li>
+        <a class="recentStop" href="/stops/<%= stop.stopId %>">
+          <span class="recentStopName"><%= stop.name %></span>
+          <span class="recentStopNumber">Stop <%= stop.stopId %></span>
+          <span class="recentStopNext">
+            <% if (stop.nextBus) { %>
+            <span class="routeBadge<% if (stop.nextBus.isLongName) { %> isLongName<% } %>"><span class="visuallyHidden">Route </span><%= stop.nextBus.route %></span>
+            <span class="recentStopHeadsign"><%= stop.nextBus.headsign %></span>
+            <span class="recentStopMinutes"><%= stop.nextBus.minutes %></span>
+            <% } else if (stop.hasTimes) { %>
+            No buses in the next 2 hours
+            <% } else { %>
+            Tap for arrivals
+            <% } %>
+          </span>
+          <svg class="rowChevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="m9 18 6-6-6-6"/>
+          </svg>
+        </a>
+      </li>
+      <% }) %>
+    </ul>
+
+    <form class="recentStopsClear" action="/recent-stops/clear" method="post">
+      <button class="button buttonSecondary" type="submit">Clear recent stops</button>
+    </form>
+  </section>
+  <% } %>
+
+  <h2 class="homeTitle">What's new</h2>
   <p class="homeIntro">The latest from the Hawaiʻi Department of Transportation (HDOT).</p>
 
   <div class="homeSections">
     <%# scripts/fetchNews.js saves these every 15 minutes. Every link goes to hidot.hawaii.gov. %>
     <section class="newsSection" aria-labelledby="newsSectionTitle">
-      <h2 id="newsSectionTitle">News releases</h2>
+      <h3 class="newsSectionTitle" id="newsSectionTitle">News releases</h3>
 
       <% if (articles.length) { %>
       <ul class="newsList">
         <% articles.forEach((article) => { %>
         <li>
           <article class="newsCard">
-            <h3 class="newsCardTitle"><a href="<%= article.url %>"><%= article.title %></a></h3>
+            <h4 class="newsCardTitle"><a href="<%= article.url %>"><%= article.title %></a></h4>
             <time class="newsCardDate" datetime="<%= article.dateTime %>"><%= article.date %></time>
             <% if (article.excerpt) { %>
             <p class="newsCardExcerpt"><%= article.excerpt %></p>
@@ -38,7 +80,7 @@
         link on edited posts, and the X logo at the upper right. The text stays on one line in
         this file because .xPostText keeps every space and line break. %>
     <section class="newsSection" aria-labelledby="xPostsTitle">
-      <h2 id="xPostsTitle">@DOTHawaii on X</h2>
+      <h3 class="newsSectionTitle" id="xPostsTitle">@DOTHawaii on X</h3>
 
       <% if (posts.length) { %>
       <ul class="newsList">
