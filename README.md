@@ -59,19 +59,20 @@ This application is free to use, and the information available here could offer 
 #### What's next
 * Search by stop name and route, not just stop number
 * Accounts, so riders can save their usual stops
-* An on-time tracker that records how reliably each route runs
+* An on-time tracker showing how reliably each route runs. It's already collecting data: every 5 minutes, a job records how early or late each bus is running.
 
 #### Project structure
 ```
 server.js               Express app: security headers, routes, error handling
 config/                 MongoDB connection
 controller/             Page and API handlers
-model/                  Mongoose models: Stop, Route, RoutePattern, FeedImport, NewsArticle, XPost
+model/                  Mongoose models: Stop, Route, RoutePattern, FeedImport, NewsArticle, XPost, ReliabilityHour
 routes/                 URL routing
 middleware/             Input validation, rate limits, and the recent stops cookie
 services/theBus.js      The only code that calls TheBus's API
 scripts/importGtfs.js   Loads TheBus's GTFS schedule into MongoDB (a daily Railway cron job)
 scripts/fetchNews.js    Saves HDOT's newest news and X posts for the home page (a Railway cron job)
+scripts/trackReliability.js  Records how early or late buses run, every 5 minutes (a Railway cron job)
 views/                  EJS pages and partials
 public/                 CSS and browser JavaScript
 ```
