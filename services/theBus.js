@@ -61,13 +61,26 @@ function getStatus(raw) {
   return raw.estimated === '1' ? 'live' : 'scheduled';
 }
 
+// Arrivals name the A, U, and W LINE "A", "U", and "W", and start their headsign with "LINE":
+// route "A" with headsign "LINE U.H. MANOA VIA DOWNTOWN HNL". Riders know it as the A LINE, the
+// name the Routes tab and route maps use, so "LINE" moves back into the route name.
+function toRouteName(route, headsign) {
+  // Letter routes only (A, U, W), so a numbered route's headsign is never touched
+  if (/^[A-Z]+$/.test(route) && headsign.startsWith('LINE ')) {
+    return { route: `${route} LINE`, headsign: headsign.slice('LINE '.length) };
+  }
+  return { route, headsign };
+}
+
 function toArrival(raw, nowMs) {
   const status = getStatus(raw);
+  const { route, headsign } = toRouteName(raw.route ?? '', raw.headsign ?? '');
 
   return {
     id: raw.id,
-    route: raw.route,
-    headsign: raw.headsign,
+    route,
+    apiRoute: raw.route, // TheBus's own name ("A"), which route pages match against Route.apiName
+    headsign,
     direction: raw.direction,
     time: raw.stopTime,
     minutesAway: Math.floor((parseHawaiiTime(raw.date, raw.stopTime) - nowMs) / 60000),
