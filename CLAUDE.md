@@ -8,8 +8,8 @@ Wea Da Bus is a mobile-first web app that shows live arrival times from TheBus (
 
 - `npm run dev` runs the server with `node --watch` on http://localhost:3000. `npm start` runs it without watching.
 - `npm run import:gtfs` downloads TheBus's GTFS schedule and replaces the `stops`, `routes`, and `routepatterns` collections. Re-run it when TheBus publishes a new feed. The script prints the current feed's end date.
-- `npm run fetch:news` saves HDOT's newest news releases for the Home tab. On Railway it runs as its own cron service every 15 minutes (see News).
-- `.env` needs `WEBSERVICESKEY` (the TheBus API key) and `DB_STRING` (MongoDB). The server exits at startup if either is missing or the database connection fails. `SITE_URL` is optional (see Page metadata). `.env.example` lists every variable.
+- `npm run fetch:news` saves HDOT's newest news releases and @DOTHawaii's newest posts on X for the Home tab. On Railway it runs as its own cron service every 15 minutes (see News).
+- `.env` needs `WEBSERVICESKEY` (the TheBus API key) and `DB_STRING` (MongoDB). The server exits at startup if either is missing or the database connection fails. `SITE_URL` is optional (see Page metadata). `X_BEARER_TOKEN` (the X API) is used only by the news job. `.env.example` lists every variable.
 - There is no build step, linter, or test suite.
 
 ### Build order
@@ -23,7 +23,7 @@ Features are built one at a time, in this order:
    - 2c-1. Routes: the Routes tab (`/routes`, with a filter box) and route maps (`/routes/:slug`). A route map has a solid line for the selected direction, a dotted, faded line for the return, a direction toggle labeled by headsign, the stops in order, and arrivals filtered to that route. Done.
    - 2c-2. Live buses on the route map that glide to each new position. Done.
    - 2d. Search by stop name, route, or stop number.
-   - 2e. The Home tab (`/`), built before 2d: HDOT's news releases (done), then @DOTHawaii's posts on X. The Nearby map moved to `/nearby`.
+   - 2e. The Home tab (`/`), built before 2d: HDOT's news releases and @DOTHawaii's posts on X. The Nearby map moved to `/nearby`. Done.
 3. Accounts and saved stops ("My Stops"), using Passport. The map, route browsing, and search must keep working without login.
 4. On-time reliability tracker. Poll a chosen set of stops and store the results in MongoDB.
 
@@ -39,8 +39,8 @@ At 48rem and wider, the tab bar becomes the top navigation and replaces the site
 
 ## Architecture
 
-- **Three data sources.** GTFS is the static map: stops, routes, and route lines. It is imported into MongoDB. The TheBus API is the live layer: arrivals and vehicle positions. Live data is never stored, except for the Feature 4 snapshots. News for the Home tab comes from HDOT, saved to MongoDB by a cron job (see News).
-- **Models** (`model/`). `NewsArticle` is written only by `scripts/fetchNews.js` (see News). The rest are written only by `scripts/importGtfs.js`:
+- **Three data sources.** GTFS is the static map: stops, routes, and route lines. It is imported into MongoDB. The TheBus API is the live layer: arrivals and vehicle positions. Live data is never stored, except for the Feature 4 snapshots. News for the Home tab comes from HDOT's site and X, saved to MongoDB by a cron job (see News).
+- **Models** (`model/`). `NewsArticle` and `XPost` are written only by `scripts/fetchNews.js` (see News). The rest are written only by `scripts/importGtfs.js`:
   - `Stop`: keyed by `stopId`, the number on the sign. It has a GeoJSON `location` with a 2dsphere index, the display names of the routes that serve it, and `isRailStation` for Skyline stations.
   - `Route`:
     - `slug` is the URL name (`42`, `a-line`, `skyline`).
@@ -62,7 +62,7 @@ At 48rem and wider, the tab bar becomes the top navigation and replaces the site
 - **Next bus.** Every arrival list puts the first bus that isn't canceled at the top, under "Next bus arriving to this stop:" (`.nextBusLabel`), with a divider below that card. `services/theBus.js` orders the list that way, and `putNextBusFirst` in `arrivals.js` does it again after a route page filters by route. The label hides when every bus is canceled.
 - **Client scripts are plain deferred scripts, not modules**, listed per page through `head.ejs`'s `scripts` local. They share one global scope: `arrivals.js` defines globals used by `stopArrivals.js` and `mapView.js`, so top-level names must not collide across the scripts a page loads.
 - **The map** (`GET /nearby`, `views/map.ejs`, `public/js/mapView.js`):
-  - Leaflet 1.9.4 is served from `node_modules` at `/vendor/leaflet`, so the CSP needs no script CDN. Only `img-src` allows `https://tile.openstreetmap.org`.
+  - Leaflet 1.9.4 is served from `node_modules` at `/vendor/leaflet`, so the CSP needs no script CDN. Only `img-src` allows outside hosts: `https://tile.openstreetmap.org`, and `https://pbs.twimg.com` for the X profile pictures on the Home tab.
   - **The map is created only after the page loads.** `mapView.js` builds the map in `start()`, which runs on the window `load` event, or at once if the page has already loaded. Don't move map creation back to the top level, for this reason:
     - WebKit (Safari, and every browser on an iPhone) can run deferred scripts before the stylesheets finish loading.
     - If Leaflet creates the map then, it finds the container unstyled and stamps an inline `position: relative` on it.
@@ -102,14 +102,15 @@ At 48rem and wider, the tab bar becomes the top navigation and replaces the site
     - **Reduced motion.** The global reduced-motion rule turns both off.
     - **Measured.** With the processor slowed 4×, frame rate was about 140 fps while they ran and about 144 fps afterward.
   - Route pages have no `maxBounds`. On phones the sheet covers the bottom 60% of the map, so fitting a south-shore route above it puts the map's center out over the ocean, and a pan limit would push the route under the sheet. Nearby keeps its limit, which its coordinate validators rely on.
-- **News** (`GET /`, `views/home.ejs`, `scripts/fetchNews.js`, `model/NewsArticle.js`):
-  - The Home tab shows HDOT's 5 newest news releases. The page only reads MongoDB, so it never waits on HDOT, and its dates are formatted in `Pacific/Honolulu`, because Railway runs on UTC.
+- **News** (`GET /`, `views/home.ejs`, `scripts/fetchNews.js`, `model/NewsArticle.js`, `model/XPost.js`):
+  - The Home tab shows HDOT's 5 newest news releases and @DOTHawaii's 5 newest posts on X, side by side at 48rem and wider. The page only reads MongoDB, so it never waits on HDOT or X, and its dates are formatted in `Pacific/Honolulu`, because Railway runs on UTC.
+  - The X posts follow the rules in the X API section.
   - The job reads HDOT's News-category RSS feed, `https://hidot.hawaii.gov/blog/category/news/feed/`. It's the same list as the "What's New" sidebar (`#sidebar_wrapper_home`) on hidot.hawaii.gov, plus dates and excerpts, so read the feed, not the page's HTML. The site-wide `/feed/` also carries posts that aren't news.
   - Excerpts are in CDATA, so the XML parser leaves their entities (`&#160;`, `[&#8230;]`) encoded, and `decodeEntities` turns them into text.
   - It keeps only items with a title, a valid date, and a link starting with `https://hidot.hawaii.gov/`, so the page never shows an off-site link from the feed.
   - It upserts the new list by `guid` before deleting the rest, so the page never sees an empty list. A failed download or an empty feed changes nothing. The `$nin` delete is wrapped in `mongoose.trusted()`, because `sanitizeFilter` would otherwise neutralize it.
   - Each source runs in its own try/catch, and the job exits with code 1 if any failed. It must disconnect and exit, because Railway skips a cron run while the previous one is still going.
-  - **On Railway** it's a second service from the same repo: start command `npm run fetch:news`, cron schedule `*/15 * * * *` (5 fields, in UTC, at least 5 minutes apart), variables `DB_STRING` and `NODE_ENV`, and no domain.
+  - **On Railway** it's a second service from the same repo: start command `npm run fetch:news`, cron schedule `*/15 * * * *` (5 fields, in UTC, at least 5 minutes apart), variables `DB_STRING`, `NODE_ENV`, and `X_BEARER_TOKEN`, and no domain.
 - **Failed TheBus calls don't reach the error handler.** The stop page shows a "TheBus isn't responding" message, and the API route returns a 502 with JSON.
 - **There are no sessions yet**, so an invalid or unknown stop number re-renders the Search page (`/search`) with the message instead of flashing and redirecting.
 
@@ -142,3 +143,28 @@ The feed is https://www.thebus.org/transitdata/production/google_transit.zip: ab
 - **Live data links to GTFS.** An arrival's `<shape>` matches `RoutePattern.shapeId`, and a vehicle's `<trip>` matches a GTFS `trip_id`.
 - **Directions and patterns.** All 118 routes have two directions. A direction can have several patterns, some nearly identical, like route 2's `20423_merge` and `20441`. When showing one line per direction, use the pattern with the highest `tripCount`.
 - **Unserved stops.** Three stops have no routes, such as `32003 KALIHI FACILITY GARAGE`. Leave them out of rider-facing lists.
+
+## X API
+
+`scripts/fetchNews.js` is the only code that calls X. The points below come from X's docs (https://docs.x.com) and from live responses:
+
+- **No scraping.** X's terms forbid scraping, and profiles need a login to view. Use the API.
+- **The call.** `GET https://api.x.com/2/users/382386622/tweets` with a Bearer token. `382386622` is @DOTHawaii's account ID, which never changes even if the handle does. The job asks for `max_results=5` (the API's smallest page), `exclude=replies,retweets`, and `expansions=author_id` for the author's name, @username, and picture.
+- **Billing is pay-per-use, with no free tier** (it ended in February 2026):
+  - $0.005 per post and $0.01 per user record. Each resource is charged once per UTC day however often it's read, so the 15-minute schedule costs about $2 a month.
+  - Credits are prepaid. When they run out, the API returns an error and the job keeps the last saved posts.
+  - Set a monthly spending limit in X's Developer Console.
+- **Response quirks:**
+  - The text escapes `&`, `<`, and `>` as entities, which `decodeEntities` undoes.
+  - Posts over 280 characters come back cut short, with the full `text` and `entities` in `note_tweet`.
+  - Entity offsets count differently from JavaScript string indexes once emoji appear, so `toPostParts` finds mentions, hashtags, and links by their text.
+  - `profile_image_url` is the 48 px `_normal` size; the job swaps in `_bigger` (73 px).
+  - `edit_history_tweet_ids` with more than one ID means the post was edited. An edit gets a new post ID.
+- **Display rules** (https://docs.x.com/developer-terms/display-requirements). Every card on the Home tab must keep these:
+  - The profile picture, display name, and @username all show and link to the profile, with the picture to the left of the name.
+  - The text is unaltered, on a line below the name. @mentions link to the profile, #hashtags to X's hashtag page, and links show their `display_url` and point to their `t.co` URL.
+  - The timestamp links to the post. "View on X" sits next to it, in place of the reply, repost, and like buttons.
+  - Edited posts get a link to their edit history.
+  - The X logo sits at the upper right of each post, in black or white only.
+- **Deleted posts must come down.** Each run replaces the stored posts, so a post deleted or edited on X leaves the page within 15 minutes.
+- **The token stays in the job.** `X_BEARER_TOKEN` belongs in `.env` and the `news-job` service only, never the website. Never log a request, since its headers hold the token.
