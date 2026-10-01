@@ -6,30 +6,76 @@
   <h1 class="homeTitle">What's new</h1>
   <p class="homeIntro">The latest from the Hawaiʻi Department of Transportation (HDOT).</p>
 
-  <%# scripts/fetchNews.js saves these every 15 minutes. Every link goes to hidot.hawaii.gov. %>
-  <section class="newsSection" aria-labelledby="newsSectionTitle">
-    <h2 id="newsSectionTitle">News releases</h2>
+  <div class="homeSections">
+    <%# scripts/fetchNews.js saves these every 15 minutes. Every link goes to hidot.hawaii.gov. %>
+    <section class="newsSection" aria-labelledby="newsSectionTitle">
+      <h2 id="newsSectionTitle">News releases</h2>
 
-    <% if (articles.length) { %>
-    <ul class="newsList">
-      <% articles.forEach((article) => { %>
-      <li>
-        <article class="newsCard">
-          <h3 class="newsCardTitle"><a href="<%= article.url %>"><%= article.title %></a></h3>
-          <time class="newsCardDate" datetime="<%= article.dateTime %>"><%= article.date %></time>
-          <% if (article.excerpt) { %>
-          <p class="newsCardExcerpt"><%= article.excerpt %></p>
-          <% } %>
-        </article>
-      </li>
-      <% }) %>
-    </ul>
-    <% } else { %>
-    <p class="newsEmpty">HDOT's latest news releases will show up here soon.</p>
-    <% } %>
+      <% if (articles.length) { %>
+      <ul class="newsList">
+        <% articles.forEach((article) => { %>
+        <li>
+          <article class="newsCard">
+            <h3 class="newsCardTitle"><a href="<%= article.url %>"><%= article.title %></a></h3>
+            <time class="newsCardDate" datetime="<%= article.dateTime %>"><%= article.date %></time>
+            <% if (article.excerpt) { %>
+            <p class="newsCardExcerpt"><%= article.excerpt %></p>
+            <% } %>
+          </article>
+        </li>
+        <% }) %>
+      </ul>
+      <% } else { %>
+      <p class="newsEmpty">HDOT's latest news releases will show up here soon.</p>
+      <% } %>
 
-    <a class="newsMoreLink" href="https://hidot.hawaii.gov/blog/category/news/">More news from HDOT ›</a>
-  </section>
+      <a class="newsMoreLink" href="https://hidot.hawaii.gov/blog/category/news/">More news from HDOT ›</a>
+    </section>
+
+    <%# Saved from the X API by the same job. X's display rules shape each card: the picture left
+        of the name and @username (all three link to the profile), the text unchanged below with
+        its links pointing to X, the time and "View on X" linking to the post, an edit history
+        link on edited posts, and the X logo at the upper right. The text stays on one line in
+        this file because .xPostText keeps every space and line break. %>
+    <section class="newsSection" aria-labelledby="xPostsTitle">
+      <h2 id="xPostsTitle">@DOTHawaii on X</h2>
+
+      <% if (posts.length) { %>
+      <ul class="newsList">
+        <% posts.forEach((post) => { %>
+        <li>
+          <article class="xPost">
+            <div class="xPostHeader">
+              <a class="xPostAuthor" href="<%= post.profileUrl %>">
+                <% if (post.authorImageUrl) { %>
+                <img class="xPostAvatar" src="<%= post.authorImageUrl %>" alt="" width="48" height="48">
+                <% } %>
+                <span class="xPostName"><%= post.authorName %></span>
+                <span class="xPostUsername">@<%= post.authorUsername %></span>
+              </a>
+              <svg class="xLogo" viewBox="0 0 1200 1227" aria-hidden="true">
+                <path d="M714.163 519.284L1160.89 0H1055.03L667.137 450.887L357.328 0H0L468.492 681.821L0 1226.37H105.866L515.491 750.218L842.672 1226.37H1200L714.137 519.284H714.163ZM569.165 687.828L521.697 619.934L144.011 79.6944H306.615L611.412 515.685L658.88 583.579L1055.08 1150.3H892.476L569.165 687.854V687.828Z"/>
+              </svg>
+            </div>
+            <p class="xPostText"><% post.parts.forEach((part) => { %><% if (part.href) { %><a href="<%= part.href %>"><%= part.text %></a><% } else { %><%= part.text %><% } %><% }) %></p>
+            <p class="xPostMeta">
+              <a href="<%= post.permalink %>"><time datetime="<%= post.dateTime %>"><%= post.date %></time></a>
+              <a href="<%= post.permalink %>">View on X</a>
+            </p>
+            <% if (post.historyUrl) { %>
+            <p class="xPostEdited">Edited. <a href="<%= post.historyUrl %>">See the edit history on X</a></p>
+            <% } %>
+          </article>
+        </li>
+        <% }) %>
+      </ul>
+      <% } else { %>
+      <p class="newsEmpty">HDOT's latest posts on X will show up here soon.</p>
+      <% } %>
+
+      <a class="newsMoreLink" href="https://x.com/DOTHawaii">See more on X ›</a>
+    </section>
+  </div>
 </main>
 
 <%- include('partials/footer') %>
