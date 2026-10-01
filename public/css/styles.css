@@ -431,6 +431,12 @@ Home
   color: var(--colorTextMuted);
 }
 
+/* News releases, then X posts; side by side on wider screens (see Media queries) */
+.homeSections {
+  display: grid;
+  gap: var(--spaceXl);
+}
+
 .newsSection {
   display: grid;
   gap: var(--spaceSm);
@@ -512,6 +518,84 @@ Home
   justify-self: start;
   min-height: var(--tapTarget);
   font-weight: 700;
+}
+
+/* Posts on X, laid out the way X's display rules require (see views/home.ejs) */
+.xPost {
+  display: grid;
+  gap: var(--spaceSm);
+  padding: var(--spaceMd);
+  border: 1px solid var(--colorBorder);
+  border-radius: var(--radiusMd);
+  background: var(--colorSurface);
+}
+
+.xPostHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--spaceSm);
+}
+
+/* The picture sits to the left of the name and @username */
+.xPostAuthor {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  column-gap: var(--spaceSm);
+  min-width: 0;
+  color: var(--colorText);
+  text-decoration: none;
+}
+
+.xPostAvatar {
+  grid-row: span 2;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 50%;
+}
+
+.xPostName {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.xPostUsername {
+  color: var(--colorTextMuted);
+  font-size: var(--fontSizeSm);
+}
+
+/* X's brand rules allow the logo only in black or white, which the text colors are close to */
+.xLogo {
+  flex-shrink: 0;
+  width: 1.25rem;
+  height: 1.25rem;
+  fill: currentColor;
+}
+
+/* The post exactly as written: its own line breaks kept, and long links wrapped */
+.xPostText {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.xPostMeta {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: var(--spaceMd);
+  font-size: var(--fontSizeSm);
+}
+
+.xPostMeta a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  color: var(--colorTextMuted);
+}
+
+.xPostEdited {
+  color: var(--colorTextMuted);
+  font-size: var(--fontSizeSm);
 }
 
 /**************************************************************
@@ -1473,6 +1557,16 @@ Media queries
     height: 1.25rem;
   }
 
+  /* News and X posts side by side, so the home page runs wider than the others */
+  .homePage {
+    max-width: 64rem;
+  }
+
+  .homeSections {
+    grid-template-columns: repeat(2, 1fr);
+    align-items: start;
+  }
+
   .searchPage {
     padding-block: calc(var(--spaceXl) * 2);
   }
@@ -1542,6 +1636,10 @@ Media queries
 
   .newsCard:hover {
     border-color: var(--colorPrimary);
+  }
+
+  .xPostAuthor:hover .xPostName {
+    text-decoration: underline;
   }
 }
 
