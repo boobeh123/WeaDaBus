@@ -422,13 +422,101 @@ Home
   padding-block: var(--spaceLg);
 }
 
+/* "Your recent stops" and "What's new": section headings that keep the size of a page title */
 .homeTitle {
   margin-bottom: var(--spaceSm);
+  font-size: var(--fontSizeXl);
+  line-height: 1.15;
 }
 
 .homeIntro {
   margin-bottom: var(--spaceLg);
   color: var(--colorTextMuted);
+}
+
+/* Your recent stops: one big link per stop, from the recentStops cookie */
+.recentStops {
+  margin-bottom: var(--spaceXl);
+}
+
+/* One column on phones, up to three side by side on wider screens */
+.recentStopList {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(17rem, 1fr));
+  gap: var(--spaceSm);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Name and stop number on the left with the › beside them, and the next bus across the bottom */
+.recentStop {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: var(--spaceXs) var(--spaceSm);
+  height: 100%;
+  padding: var(--spaceMd);
+  border: 1px solid var(--colorBorder);
+  border-radius: var(--radiusMd);
+  background: var(--colorSurface);
+  color: var(--colorText);
+  text-decoration: none;
+}
+
+.recentStopName {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.recentStopNumber {
+  grid-column: 1;
+  color: var(--colorTextMuted);
+  font-size: var(--fontSizeSm);
+}
+
+.recentStop .rowChevron {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+
+.recentStopNext {
+  display: flex;
+  grid-column: 1 / -1;
+  align-items: center;
+  gap: var(--spaceSm);
+  margin-top: var(--spaceXs);
+  color: var(--colorTextMuted);
+}
+
+/* Smaller than the arrival cards' badge, since here the whole row is the tap target */
+.recentStopNext .routeBadge {
+  flex-shrink: 0;
+  min-width: 2.5rem;
+  min-height: 2rem;
+  font-size: var(--fontSizeBase);
+}
+
+.recentStopNext .routeBadge.isLongName {
+  font-size: var(--fontSizeSm);
+}
+
+.recentStopHeadsign {
+  flex: 1;
+  min-width: 0;
+  color: var(--colorText);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.recentStopMinutes {
+  color: var(--colorText);
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.recentStopsClear {
+  margin-top: var(--spaceMd);
 }
 
 /* News releases, then X posts; side by side on wider screens (see Media queries) */
@@ -440,6 +528,13 @@ Home
 .newsSection {
   display: grid;
   gap: var(--spaceSm);
+}
+
+/* "News releases" and "@DOTHawaii on X" */
+.newsSectionTitle {
+  margin: 0;
+  font-size: var(--fontSizeLg);
+  line-height: 1.25;
 }
 
 .newsList {
@@ -1634,7 +1729,8 @@ Media queries
     color: var(--colorText);
   }
 
-  .newsCard:hover {
+  .newsCard:hover,
+  .recentStop:hover {
     border-color: var(--colorPrimary);
   }
 
