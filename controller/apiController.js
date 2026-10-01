@@ -4,6 +4,7 @@ const Stop = require('../model/Stop');
 const Route = require('../model/Route');
 const RoutePattern = require('../model/RoutePattern');
 const theBus = require('../services/theBus');
+const { rememberStop } = require('../middleware/recentStops');
 
 const MAX_STOPS_IN_AREA = 400;
 const NEARBY_LIMIT = 8;
@@ -38,6 +39,9 @@ exports.getStopArrivals = async (req, res) => {
   if (!(await Stop.exists({ stopId }))) {
     return res.status(404).json({ error: 'Stop not found.' });
   }
+
+  // Opening a stop on the map counts too: it's listed under "Your recent stops" on the Home tab
+  rememberStop(req, res, stopId);
 
   try {
     const stop = await theBus.getArrivals(stopId);
