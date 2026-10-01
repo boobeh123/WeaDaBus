@@ -3,7 +3,17 @@
   <a class="tabBarBrand" href="/">Wea Da Bus</a>
   <ul class="tabList">
     <li>
-      <a class="tabLink" href="/"<% if (locals.activeTab === 'nearby') { %> aria-current="page"<% } %>>
+      <a class="tabLink" href="/"<% if (locals.activeTab === 'home') { %> aria-current="page"<% } %>>
+        <svg class="tabIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="m3 11 9-8 9 8"/>
+          <path d="M5 9.5V20a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V9.5"/>
+          <path d="M10 21v-6h4v6"/>
+        </svg>
+        <span class="tabLabel">Home</span>
+      </a>
+    </li>
+    <li>
+      <a class="tabLink" href="/nearby"<% if (locals.activeTab === 'nearby') { %> aria-current="page"<% } %>>
         <svg class="tabIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/>
           <circle cx="12" cy="10" r="2.5"/>
