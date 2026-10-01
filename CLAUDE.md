@@ -114,7 +114,7 @@ At 48rem and wider, the tab bar becomes the top navigation and replaces the site
     - **Measured.** With the processor slowed 4×, frame rate was about 140 fps while they ran and about 144 fps afterward.
   - Route pages have no `maxBounds`. On phones the sheet covers the bottom 60% of the map, so fitting a south-shore route above it puts the map's center out over the ocean, and a pan limit would push the route under the sheet. Nearby keeps its limit, which its coordinate validators rely on.
 - **News** (`GET /`, `views/home.ejs`, `scripts/fetchNews.js`, `model/NewsArticle.js`, `model/XPost.js`):
-  - The Home tab shows HDOT's 5 newest news releases and @DOTHawaii's 5 newest posts on X, side by side at 48rem and wider. The page only reads MongoDB, so it never waits on HDOT or X, and its dates are formatted in `Pacific/Honolulu`, because Railway runs on UTC.
+  - The Home tab shows the rider's recent stops (see Recent stops), then HDOT's 5 newest news releases and @DOTHawaii's 5 newest posts on X, side by side at 48rem and wider. The news comes only from MongoDB, so the page never waits on HDOT or X, and its dates are formatted in `Pacific/Honolulu`, because Railway runs on UTC.
   - The X posts follow the rules in the X API section.
   - The job reads HDOT's News-category RSS feed, `https://hidot.hawaii.gov/blog/category/news/feed/`. It's the same list as the "What's New" sidebar (`#sidebar_wrapper_home`) on hidot.hawaii.gov, plus dates and excerpts, so read the feed, not the page's HTML. The site-wide `/feed/` also carries posts that aren't news.
   - Excerpts are in CDATA, so the XML parser leaves their entities (`&#160;`, `[&#8230;]`) encoded, and `decodeEntities` turns them into text.
@@ -122,6 +122,14 @@ At 48rem and wider, the tab bar becomes the top navigation and replaces the site
   - It upserts the new list by `guid` before deleting the rest, so the page never sees an empty list. A failed download or an empty feed changes nothing. The `$nin` delete is wrapped in `mongoose.trusted()`, because `sanitizeFilter` would otherwise neutralize it.
   - Each source runs in its own try/catch, and the job exits with code 1 if any failed. It must disconnect and exit, because Railway skips a cron run while the previous one is still going.
   - **On Railway** it's a second service from the same repo: start command `npm run fetch:news`, cron schedule `*/15 * * * *` (5 fields, in UTC, at least 5 minutes apart), variables `DB_STRING`, `NODE_ENV`, and `X_BEARER_TOKEN`, and no domain.
+- **Recent stops** (`middleware/recentStops.js`, the top of the Home tab):
+  - **The cookie.** `recentStops` holds up to 3 stop numbers, newest first (`4523.983.10030`). It's `httpOnly` and `SameSite=Lax`, `Secure` in production, and lasts a year. It isn't a session: there are still no sessions or accounts.
+  - **When it's written.** `rememberStop` runs when a stop page opens (`stopController.getStop`) and when the arrivals API is called (`apiController.getStopArrivals`, used by the map sheet and the stop page's refresh). It skips the cookie when the stop is already first, so the 60-second refresh doesn't resend it.
+  - **Reading it safely.** Express doesn't parse cookies without a package, so `getRecentStops` reads the Cookie header itself and keeps only 1-to-5-digit stop numbers. Riders can edit their own cookies, so Home looks the numbers up in MongoDB first. Unknown numbers are skipped, and TheBus is only asked about real stops.
+  - **The next bus.** Home asks TheBus about each recent stop in parallel and waits 3 seconds at most (`withTimeout`). A stop TheBus doesn't answer for in time shows "Tap for arrivals". Canceled buses are skipped.
+  - **Limits and caching.** `GET /` has `pageLimiter` (shared with stop pages), since it can cost TheBus calls. It also sends `Cache-Control: private, no-cache`, so no shared cache keeps one rider's stops.
+  - **Clearing.** "Clear recent stops" posts to `/recent-stops/clear`, which clears the cookie and redirects home with a 303.
+  - **Headings.** The Home page's `h1` is visually hidden, so "Your recent stops" and "What's new" are both `h2`s. The news sections are `h3`s and their cards `h4`s.
 - **Failed TheBus calls don't reach the error handler.** The stop page shows a "TheBus isn't responding" message, and the API route returns a 502 with JSON.
 - **There are no sessions yet**, so an invalid or unknown stop number re-renders the Search page (`/search`) with the message instead of flashing and redirecting.
 
