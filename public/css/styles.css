@@ -416,6 +416,105 @@ Tab bar
 }
 
 /**************************************************************
+Home
+***************************************************************/
+.homePage {
+  padding-block: var(--spaceLg);
+}
+
+.homeTitle {
+  margin-bottom: var(--spaceSm);
+}
+
+.homeIntro {
+  margin-bottom: var(--spaceLg);
+  color: var(--colorTextMuted);
+}
+
+.newsSection {
+  display: grid;
+  gap: var(--spaceSm);
+}
+
+.newsList {
+  display: grid;
+  gap: var(--spaceSm);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* The title's link stretches over the whole card (see the ::after below), so the card is one big tap target */
+.newsCard {
+  position: relative;
+  display: grid;
+  gap: var(--spaceXs);
+  padding: var(--spaceMd);
+  border: 1px solid var(--colorBorder);
+  border-radius: var(--radiusMd);
+  background: var(--colorSurface);
+}
+
+.newsCardTitle {
+  margin: 0;
+  font-size: var(--fontSizeBase);
+  line-height: 1.3;
+}
+
+.newsCardTitle a {
+  color: var(--colorText);
+  text-decoration: none;
+}
+
+.newsCardTitle a::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radiusMd);
+}
+
+/* The focus ring goes around the whole card, matching the area that's tappable */
+.newsCardTitle a:focus-visible {
+  outline: none;
+}
+
+.newsCardTitle a:focus-visible::after {
+  outline: 3px solid var(--colorFocus);
+  outline-offset: 3px;
+}
+
+.newsCardDate {
+  color: var(--colorTextMuted);
+  font-size: var(--fontSizeSm);
+}
+
+/* Three lines are enough to tell what a release is about; the rest is on HDOT's site */
+.newsCardExcerpt {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  color: var(--colorTextMuted);
+  font-size: var(--fontSizeSm);
+}
+
+.newsEmpty {
+  padding: var(--spaceMd);
+  border: 1px solid var(--colorBorder);
+  border-radius: var(--radiusMd);
+  background: var(--colorSurface);
+}
+
+.newsMoreLink {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  min-height: var(--tapTarget);
+  font-weight: 700;
+}
+
+/**************************************************************
 Search
 ***************************************************************/
 .searchPage {
@@ -1439,6 +1538,10 @@ Media queries
 
   .routeStop:hover .rowChevron {
     color: var(--colorText);
+  }
+
+  .newsCard:hover {
+    border-color: var(--colorPrimary);
   }
 }
 
