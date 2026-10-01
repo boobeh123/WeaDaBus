@@ -8,6 +8,7 @@ Wea Da Bus is a mobile-first web app that shows live arrival times from TheBus (
 
 - `npm run dev` runs the server with `node --watch` on http://localhost:3000. `npm start` runs it without watching.
 - `npm run import:gtfs` imports TheBus's GTFS schedule into the `stops`, `routes`, and `routepatterns` collections, but only when TheBus has posted a new one, and not before the day it starts. On Railway it runs as its own cron service every day (see The import). `npm run import:gtfs -- --force` imports right away. The script prints the feed's dates.
+- `npm run track:reliability` adds one reading of every running bus to the on-time tracker's hourly totals. On Railway it runs as its own cron service every 5 minutes (see On-time tracker).
 - `npm run fetch:news` saves HDOT's newest news releases and @DOTHawaii's newest posts on X for the Home tab. On Railway it runs as its own cron service every 15 minutes (see News).
 - `.env` needs `WEBSERVICESKEY` (the TheBus API key) and `DB_STRING` (MongoDB). The server exits at startup if either is missing or the database connection fails. `SITE_URL` is optional (see Page metadata). `X_BEARER_TOKEN` (the X API) is used only by the news job. `.env.example` lists every variable.
 - There is no build step, linter, or test suite.
@@ -25,7 +26,9 @@ Features are built one at a time, in this order:
    - 2d. Search by stop name, route, or stop number.
    - 2e. The Home tab (`/`), built before 2d: HDOT's news releases and @DOTHawaii's posts on X. The Nearby map moved to `/nearby`. Done.
 3. Accounts and saved stops ("My Stops"), using Passport. The map, route browsing, and search must keep working without login.
-4. On-time reliability tracker. Poll a chosen set of stops and store the results in MongoDB.
+4. On-time reliability tracker, in two steps:
+   - 4a. The collector: a cron job reads TheBus's vehicle feed every 5 minutes and keeps hourly on-time totals for every route and direction (see On-time tracker). Done. It replaced the first idea of polling a chosen set of stops, because one vehicle-feed call covers every route.
+   - 4b. The page, once there are a couple of weeks of data: on-time rates on route maps and a ranking of routes.
 
 Email and push alerts are out of scope. Sessions and Passport aren't installed until Feature 3.
 
@@ -39,8 +42,8 @@ At 48rem and wider, the tab bar becomes the top navigation and replaces the site
 
 ## Architecture
 
-- **Three data sources.** GTFS is the static map: stops, routes, and route lines. It is imported into MongoDB. The TheBus API is the live layer: arrivals and vehicle positions. Live data is never stored, except for the Feature 4 snapshots. News for the Home tab comes from HDOT's site and X, saved to MongoDB by a cron job (see News).
-- **Models** (`model/`). `NewsArticle` and `XPost` are written only by `scripts/fetchNews.js` (see News). The rest are written only by `scripts/importGtfs.js` (see The import):
+- **Three data sources.** GTFS is the static map: stops, routes, and route lines. It is imported into MongoDB. The TheBus API is the live layer: arrivals and vehicle positions. Live data is never stored, except as the on-time tracker's hourly totals. News for the Home tab comes from HDOT's site and X, saved to MongoDB by a cron job (see News).
+- **Models** (`model/`). `NewsArticle` and `XPost` are written only by `scripts/fetchNews.js` (see News), and `ReliabilityHour` only by `scripts/trackReliability.js` (see On-time tracker). The rest are written only by `scripts/importGtfs.js` (see The import):
   - `Stop`: keyed by `stopId`, the number on the sign. It has a GeoJSON `location` with a 2dsphere index, the display names of the routes that serve it, and `isRailStation` for Skyline stations.
   - `Route`:
     - `slug` is the URL name (`42`, `a-line`, `skyline`).
@@ -130,6 +133,14 @@ At 48rem and wider, the tab bar becomes the top navigation and replaces the site
   - **Limits and caching.** `GET /` has `pageLimiter` (shared with stop pages), since it can cost TheBus calls. It also sends `Cache-Control: private, no-cache`, so no shared cache keeps one rider's stops.
   - **Clearing.** "Clear recent stops" posts to `/recent-stops/clear`, which clears the cookie and redirects home with a 303.
   - **Headings.** The Home page's `h1` is visually hidden, so "Your recent stops" and "What's new" are both `h2`s. The news sections are `h3`s and their cards `h4`s.
+- **On-time tracker** (`scripts/trackReliability.js`, `model/ReliabilityHour.js`):
+  - **One call per run.** Each run calls `theBus.getVehicles()` once, which is 288 calls a day. That covers every running bus, already without parked or silent ones. Skyline isn't in the vehicle feed.
+  - **What's on time.** A bus is on time from 1 minute early to 5 minutes late (`adherence` +1 to -5; positive is early). More than 1 minute early is early, and more than 5 minutes late is late. Readings more than 60 minutes off either way are skipped as glitches.
+  - **Direction.** It comes from the bus's trip ID, as on route maps. An aggregation `$filter`s each pattern's `tripIds` down to the running trips, so the 10 MB of trip IDs never leaves Atlas. A trip that isn't in our GTFS copy is counted with `direction: null`.
+  - **What's stored.** Only totals, one `ReliabilityHour` document per route (`routeName`, the vehicle feed's name, same as `Route.shortName`), direction, and hour (`hourStart`, a UTC hour, which is also a Hawaii hour because Hawaii is UTC-10 all year). Each run `$inc`s the counts (`readings`, `onTime`, `early`, `late`, `totalMinutesLate`) and `$max`es `maxMinutesLate`, with a unique index on route, direction, and hour. That's roughly 100 to 200 MB a year. On Atlas's free 512 MB plan, older hours would later be folded into daily totals.
+  - **What the numbers mean.** Each reading is one bus at one moment, so the totals say how often a route's buses run on time, not how many trips arrived on time. The page should word it that way, and say the data comes from TheBus's GPS reports, which can be a couple of minutes old.
+  - **Failures.** TheBus is called before anything is written, so a failed call saves nothing and exits with code 1.
+  - **On Railway** it's a fourth service, `reliability-job`, from the same repo: start command `npm run track:reliability`, cron schedule `*/5 * * * *`, variables `DB_STRING`, `WEBSERVICESKEY`, and `NODE_ENV`, and no domain.
 - **Failed TheBus calls don't reach the error handler.** The stop page shows a "TheBus isn't responding" message, and the API route returns a 502 with JSON.
 - **There are no sessions yet**, so an invalid or unknown stop number re-renders the Search page (`/search`) with the message instead of flashing and redirecting.
 
