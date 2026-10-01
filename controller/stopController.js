@@ -1,6 +1,7 @@
 const { validationResult, matchedData } = require('express-validator');
 const Stop = require('../model/Stop');
 const theBus = require('../services/theBus');
+const { rememberStop } = require('../middleware/recentStops');
 
 // GET /stops?stop=983: the Search tab's form submits here
 exports.getStopSearch = async (req, res) => {
@@ -46,6 +47,8 @@ exports.getStop = async (req, res) => {
       message: `We couldn't find stop ${stopId}. Check the number on the bus stop sign.`,
     });
   }
+
+  rememberStop(req, res, stopId); // Listed under "Your recent stops" on the Home tab
 
   // A TheBus outage shouldn't be an error page: show the stop with a "not responding" message
   let stop = null;
