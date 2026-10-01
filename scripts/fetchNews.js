@@ -1,23 +1,36 @@
 // Saves the latest transportation news for the home page: the Hawaiʻi Department of
-// Transportation's news releases, read from HDOT's RSS feed. Railway runs it as a cron job
-// (`npm run fetch:news`, every 15 minutes). Each source is downloaded and checked before the
-// database is touched, so a failed run leaves the last good news on the page.
+// Transportation's news releases, read from HDOT's RSS feed, and its posts on X, read from the
+// X API. Railway runs it as a cron job (`npm run fetch:news`, every 15 minutes). Each source is
+// downloaded and checked before the database is touched, so a failed run leaves the last good
+// news on the page.
 require('dotenv').config();
 
 const mongoose = require('mongoose');
 const { XMLParser } = require('fast-xml-parser');
 const connectDB = require('../config/database');
 const NewsArticle = require('../model/NewsArticle');
+const XPost = require('../model/XPost');
 
 // HDOT's News category: the same list as the "What's New" sidebar on hidot.hawaii.gov
 const HDOT_FEED_URL = 'https://hidot.hawaii.gov/blog/category/news/feed/';
 const HDOT_SITE = 'https://hidot.hawaii.gov/';
 const HDOT_LIMIT = 5;
+
+// @DOTHawaii on X. Its account ID never changes, while its handle could, so posts are fetched by ID.
+const X_API_URL = 'https://api.x.com/2';
+const DOT_HAWAII_USER_ID = '382386622';
+const X_LIMIT = 5; // Also the smallest page the API allows
+
 const REQUEST_TIMEOUT_MS = 15 * 1000;
 const USER_AGENT = 'WeaDaBus/1.0 (+https://weadabus.com)';
 
 // Entities written as names instead of numbers, like &amp;
 const NAMED_ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' };
+
+// X usernames: 1 to 15 letters, digits, or underscores
+const X_USERNAME = /^\w{1,15}$/;
+// One character that can be part of an @mention or #hashtag: a letter, digit, or underscore
+const WORD_CHARACTER = /[\p{L}\p{N}_]/u;
 
 const feedParser = new XMLParser({
   htmlEntities: true, // Titles can contain entities like &#8217;
@@ -113,10 +126,142 @@ async function syncHdotNews() {
 }
 
 /**************************************************************
+X posts
+***************************************************************/
+// Whether a link's text starts at this spot in the post. Mentions and hashtags must stand
+// alone, so #hitraffic doesn't match the start of #hitrafficalert.
+function isLinkAt(text, index, link) {
+  const candidate = text.slice(index, index + link.match.length);
+  if (candidate.toLowerCase() !== link.match.toLowerCase()) return false;
+  if (!link.isWord) return true;
+
+  const before = text[index - 1] ?? '';
+  const after = text[index + link.match.length] ?? '';
+  return !WORD_CHARACTER.test(before) && !WORD_CHARACTER.test(after);
+}
+
+// X's display rules require each @mention, #hashtag, and web link in a post to link to its home
+// on X, with web links shown as their short display_url (like pic.x.com/abc). This splits the
+// text into plain runs and those links. It finds them by their text, not by X's character
+// offsets, which count differently from JavaScript strings once emoji are involved.
+function toPostParts(text, entities = {}) {
+  const links = [
+    ...(entities.urls ?? [])
+      .filter((entity) => textOf(entity.url).startsWith('https://t.co/') && textOf(entity.display_url))
+      .map((entity) => ({ match: entity.url, text: entity.display_url, href: entity.url })),
+    ...(entities.mentions ?? [])
+      .filter((entity) => X_USERNAME.test(textOf(entity.username)))
+      .map((entity) => ({ match: `@${entity.username}`, href: `https://x.com/${entity.username}`, isWord: true })),
+    ...(entities.hashtags ?? [])
+      .filter((entity) => textOf(entity.tag))
+      .map((entity) => ({ match: `#${entity.tag}`, href: `https://x.com/hashtag/${encodeURIComponent(entity.tag)}`, isWord: true })),
+  ].sort((a, b) => b.match.length - a.match.length); // Longest first, so @abc_2 wins over @abc
+
+  const parts = [];
+  let plain = '';
+  let index = 0;
+
+  while (index < text.length) {
+    const link = links.find((candidate) => isLinkAt(text, index, candidate));
+    if (link) {
+      if (plain) parts.push({ text: plain });
+      plain = '';
+      // Mentions and hashtags keep the capitalization used in the post
+      parts.push({ text: link.text ?? text.slice(index, index + link.match.length), href: link.href });
+      index += link.match.length;
+    } else {
+      plain += text[index];
+      index += 1;
+    }
+  }
+  if (plain) parts.push({ text: plain });
+
+  return parts;
+}
+
+async function fetchXPosts() {
+  if (!process.env.X_BEARER_TOKEN) {
+    throw new Error('X_BEARER_TOKEN is not set. Add it to .env locally or to this service in Railway.');
+  }
+
+  const params = new URLSearchParams({
+    max_results: String(X_LIMIT),
+    exclude: 'replies,retweets', // HDOT's own posts only
+    'tweet.fields': 'created_at,entities,note_tweet,edit_history_tweet_ids',
+    expansions: 'author_id', // Adds the name, @username, and picture each card must show
+    'user.fields': 'name,username,profile_image_url',
+  });
+  const res = await fetch(`${X_API_URL}/users/${DOT_HAWAII_USER_ID}/tweets?${params}`, {
+    headers: { Authorization: `Bearer ${process.env.X_BEARER_TOKEN}`, 'User-Agent': USER_AGENT },
+    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+  });
+  const body = await res.json().catch(() => ({}));
+
+  // X explains failures (a bad token, no credits left) in title and detail. The error message
+  // never includes the request, so the token can't end up in the logs.
+  if (!res.ok) {
+    const reason = [...new Set([body.title, body.detail].filter(Boolean))].join(': ') || 'no details';
+    throw new Error(`X API returned HTTP ${res.status}: ${reason}`);
+  }
+  return body;
+}
+
+// Turns the API's answer into posts, newest first, keeping only complete ones from @DOTHawaii
+function parseXPosts(body) {
+  const author = (body.includes?.users ?? []).find((user) => user.id === DOT_HAWAII_USER_ID);
+  const authorUsername = textOf(author?.username);
+  if (!author || !X_USERNAME.test(authorUsername)) return [];
+
+  // _normal is 48 px; _bigger (73 px) stays sharp on high-density phone screens
+  const imageUrl = textOf(author.profile_image_url).replace('_normal.', '_bigger.');
+
+  return (body.data ?? [])
+    .map((post) => {
+      // Posts over 280 characters come back cut short, with the full version in note_tweet.
+      // The API escapes &, <, and > in the text, so decode them back.
+      const full = post.note_tweet ?? post;
+      const text = decodeEntities(textOf(full.text));
+
+      return {
+        postId: textOf(post.id),
+        text,
+        parts: toPostParts(text, full.entities),
+        postedAt: new Date(textOf(post.created_at)),
+        isEdited: (post.edit_history_tweet_ids ?? []).length > 1,
+        authorName: textOf(author.name) || authorUsername,
+        authorUsername,
+        authorImageUrl: imageUrl.startsWith('https://pbs.twimg.com/') ? imageUrl : '',
+      };
+    })
+    .filter((post) => /^\d{1,19}$/.test(post.postId) && post.text && !Number.isNaN(post.postedAt.getTime()))
+    .sort((a, b) => b.postedAt - a.postedAt)
+    .slice(0, X_LIMIT);
+}
+
+// Saves the newest posts, then removes the rest, including any HDOT deleted or edited on X
+// (an edit gets a new ID). X's developer terms require deleted posts to come down.
+async function syncXPosts() {
+  const posts = parseXPosts(await fetchXPosts());
+  if (!posts.length) throw new Error('The X API returned no usable posts');
+
+  await XPost.bulkWrite(
+    posts.map((post) => ({
+      updateOne: { filter: { postId: post.postId }, update: { $set: post }, upsert: true },
+    }))
+  );
+  await XPost.deleteMany({ postId: mongoose.trusted({ $nin: posts.map((post) => post.postId) }) });
+
+  return posts.length;
+}
+
+/**************************************************************
 Main
 ***************************************************************/
 // Each source runs on its own, so one failing doesn't stop the others
-const SOURCES = [{ name: 'HDOT news', sync: syncHdotNews }];
+const SOURCES = [
+  { name: 'HDOT news', sync: syncHdotNews },
+  { name: 'X posts', sync: syncXPosts },
+];
 
 async function fetchNews() {
   if (!process.env.DB_STRING) {
