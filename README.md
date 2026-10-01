@@ -25,7 +25,7 @@ This application is free to use, and the information available here could offer 
 * Server-rendered pages, so arrivals show up quickly even on a slow connection
 * Accessibility built in: keyboard-friendly map, and animations that switch off when Reduce Motion is on
 * Link previews, so a shared stop or route link shows its name and a picture in messages
-* Transportation news on the home page, saved by a scheduled job that runs every 15 minutes
+* Transportation news and @DOTHawaii's posts on X on the home page, saved by a scheduled job that runs every 15 minutes
 
 ### Technologies
 <img src="https://img.shields.io/badge/html5%20-%23E34F26.svg?&style=for-the-badge&logo=html5&logoColor=white" alt="HTML" height="50"/><img src="https://img.shields.io/badge/css3%20-%231572B6.svg?&style=for-the-badge&logo=css3&logoColor=white" alt="CSS" height="50"/><img src="https://img.shields.io/badge/JavaScript-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black" alt="JavaScript" height="50"/><img src="https://img.shields.io/badge/node.js%20-3F873F.svg?&style=for-the-badge&logo=node.js&logoColor=white" alt="Node" height="50"/><img src="https://img.shields.io/badge/Express.js-000000?style=for-the-badge&logo=express&logoColor=white" alt="Express" height="50"/><img src="https://img.shields.io/badge/MongoDB-4EA94B?style=for-the-badge&logo=mongodb&logoColor=white" alt="MongoDB" height="50"/><img src="https://img.shields.io/badge/Mongoose.js-8A0403?style=for-the-badge&logoColor=white" alt="Mongoose" height="50"/><img src="https://img.shields.io/badge/EJS-B4CA65?style=for-the-badge&logo=ejs&logoColor=black" alt="EJS" height="50"/><img src="https://img.shields.io/badge/Leaflet-199900?style=for-the-badge&logo=leaflet&logoColor=white" alt="Leaflet" height="50"/>
@@ -33,7 +33,7 @@ This application is free to use, and the information available here could offer 
 ### Full Breakdown
 
 #### What riders can do
-* **Home:** the newest news releases from the Hawaiʻi Department of Transportation (HDOT). Tap one to read it on HDOT's site.
+* **Home:** the newest news releases from the Hawaiʻi Department of Transportation (HDOT), and its latest posts on X. Tap a release to read it on HDOT's site.
 * **Nearby:** a map of Oʻahu. Tap **Show stops near me** to list the closest stops. The app asks for your location only when you tap. Zoom in to street level to see every stop as a pin, and tap any stop for its live arrivals.
 * **Routes:** all 118 routes, listed as Skyline first, then letter routes, then number routes, with a filter box. Each route opens a map that shows:
   * both directions in their own colors, solid for the direction you pick and dotted for the trip back, with light dashes that flow in the direction the buses travel
@@ -49,7 +49,7 @@ This application is free to use, and the information available here could offer 
   * Every call goes through this app's server, so the API key never reaches the browser.
   * Results are cached for 30 seconds, so riders looking at the same stop or route share one call.
 * **Schedule data:** stops, routes, and route lines from TheBus's GTFS feed, imported into MongoDB. The import is re-run when TheBus publishes a new feed.
-* **News:** HDOT's news releases, from its RSS feed. A scheduled job saves the newest ones to MongoDB every 15 minutes, so the home page never waits on HDOT's site.
+* **News:** HDOT's news releases, from its RSS feed, and @DOTHawaii's posts, from the X API. A scheduled job saves the newest ones to MongoDB every 15 minutes, so the home page never waits on HDOT or X.
 * **Maps:** OpenStreetMap tiles, drawn with Leaflet.
 * **Skyline:** stations and scheduled times appear. TheBus's live feed doesn't include train positions yet.
 
@@ -64,12 +64,12 @@ This application is free to use, and the information available here could offer 
 server.js               Express app: security headers, routes, error handling
 config/                 MongoDB connection
 controller/             Page and API handlers
-model/                  Mongoose models: Stop, Route, RoutePattern, NewsArticle
+model/                  Mongoose models: Stop, Route, RoutePattern, NewsArticle, XPost
 routes/                 URL routing
 middleware/             Input validation and rate limits
 services/theBus.js      The only code that calls TheBus's API
 scripts/importGtfs.js   Loads TheBus's GTFS schedule into MongoDB
-scripts/fetchNews.js    Saves HDOT's newest news for the home page (a Railway cron job)
+scripts/fetchNews.js    Saves HDOT's newest news and X posts for the home page (a Railway cron job)
 views/                  EJS pages and partials
 public/                 CSS and browser JavaScript
 ```
@@ -79,10 +79,11 @@ public/                 CSS and browser JavaScript
 2. Create a `.env` file using the variable names in `.env.example`:
    * `WEBSERVICESKEY`: a TheBus API key. Register for one at https://hea.thebus.org/api_info.asp.
    * `DB_STRING`: a MongoDB connection string.
+   * `X_BEARER_TOKEN`: an X API bearer token, used only by `npm run fetch:news` for @DOTHawaii's posts. The X API is pay-per-use. Without a token, the job still saves HDOT's news.
    * `PORT`, `NODE_ENV`, and `SITE_URL` are optional when running locally. `SITE_URL` is the site's public address, used for canonical links and link previews. It defaults to https://weadabus.up.railway.app.
 3. Run `npm run import:gtfs` to load TheBus's stops and routes into MongoDB.
-4. Run `npm run fetch:news` to load HDOT's newest news for the home page.
+4. Run `npm run fetch:news` to load HDOT's newest news and X posts for the home page.
 5. Run `npm run dev` and open http://localhost:3000.
 
 #### Credits
-Route and arrival data provided by permission of Oahu Transit Services, Inc. Map data © OpenStreetMap contributors. News releases from the Hawaiʻi Department of Transportation.
+Route and arrival data provided by permission of Oahu Transit Services, Inc. Map data © OpenStreetMap contributors. News releases from the Hawaiʻi Department of Transportation. Posts from @DOTHawaii on X, through the X API.
