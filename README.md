@@ -48,7 +48,7 @@ This application is free to use, and the information available here could offer 
 * **Live data:** stop arrivals and bus positions from TheBus's Web Services API.
   * Every call goes through this app's server, so the API key never reaches the browser.
   * Results are cached for 30 seconds, so riders looking at the same stop or route share one call.
-* **Schedule data:** stops, routes, and route lines from TheBus's GTFS feed, imported into MongoDB. The import is re-run when TheBus publishes a new feed.
+* **Schedule data:** stops, routes, and route lines from TheBus's GTFS feed, imported into MongoDB. A daily job checks whether TheBus has posted a new schedule and imports it on the day it starts, swapping it in without the site ever showing missing stops or routes.
 * **News:** HDOT's news releases, from its RSS feed, and @DOTHawaii's posts, from the X API. A scheduled job saves the newest ones to MongoDB every 15 minutes, so the home page never waits on HDOT or X.
 * **Maps:** OpenStreetMap tiles, drawn with Leaflet.
 * **Skyline:** stations and scheduled times appear. TheBus's live feed doesn't include train positions yet.
@@ -57,18 +57,17 @@ This application is free to use, and the information available here could offer 
 * Search by stop name and route, not just stop number
 * Accounts, so riders can save their usual stops
 * An on-time tracker that records how reliably each route runs
-* Automatic weekly refresh of the schedule data, since TheBus publishes a new feed a few times a year
 
 #### Project structure
 ```
 server.js               Express app: security headers, routes, error handling
 config/                 MongoDB connection
 controller/             Page and API handlers
-model/                  Mongoose models: Stop, Route, RoutePattern, NewsArticle, XPost
+model/                  Mongoose models: Stop, Route, RoutePattern, FeedImport, NewsArticle, XPost
 routes/                 URL routing
 middleware/             Input validation and rate limits
 services/theBus.js      The only code that calls TheBus's API
-scripts/importGtfs.js   Loads TheBus's GTFS schedule into MongoDB
+scripts/importGtfs.js   Loads TheBus's GTFS schedule into MongoDB (a daily Railway cron job)
 scripts/fetchNews.js    Saves HDOT's newest news and X posts for the home page (a Railway cron job)
 views/                  EJS pages and partials
 public/                 CSS and browser JavaScript
@@ -81,7 +80,7 @@ public/                 CSS and browser JavaScript
    * `DB_STRING`: a MongoDB connection string.
    * `X_BEARER_TOKEN`: an X API bearer token, used only by `npm run fetch:news` for @DOTHawaii's posts. The X API is pay-per-use. Without a token, the job still saves HDOT's news.
    * `PORT`, `NODE_ENV`, and `SITE_URL` are optional when running locally. `SITE_URL` is the site's public address, used for canonical links and link previews. It defaults to https://weadabus.up.railway.app.
-3. Run `npm run import:gtfs` to load TheBus's stops and routes into MongoDB.
+3. Run `npm run import:gtfs` to load TheBus's stops and routes into MongoDB. Later runs skip a schedule that hasn't changed; add `-- --force` to import it anyway.
 4. Run `npm run fetch:news` to load HDOT's newest news and X posts for the home page.
 5. Run `npm run dev` and open http://localhost:3000.
 
