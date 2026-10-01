@@ -26,6 +26,8 @@ This application is free to use, and the information available here could offer 
 * Accessibility built in: keyboard-friendly map, and animations that switch off when Reduce Motion is on
 * Link previews, so a shared stop or route link shows its name and a picture in messages
 * Transportation news and @DOTHawaii's posts on X on the home page, saved by a scheduled job that runs every 15 minutes
+* Recent stops: the home page remembers your last three stops on your phone and shows their next bus, with no account needed
+* Installs to your phone's home screen and opens full screen, like an app
 
 ### Technologies
 <img src="https://img.shields.io/badge/html5%20-%23E34F26.svg?&style=for-the-badge&logo=html5&logoColor=white" alt="HTML" height="50"/><img src="https://img.shields.io/badge/css3%20-%231572B6.svg?&style=for-the-badge&logo=css3&logoColor=white" alt="CSS" height="50"/><img src="https://img.shields.io/badge/JavaScript-F7DF1E?style=for-the-badge&logo=javascript&logoColor=black" alt="JavaScript" height="50"/><img src="https://img.shields.io/badge/node.js%20-3F873F.svg?&style=for-the-badge&logo=node.js&logoColor=white" alt="Node" height="50"/><img src="https://img.shields.io/badge/Express.js-000000?style=for-the-badge&logo=express&logoColor=white" alt="Express" height="50"/><img src="https://img.shields.io/badge/MongoDB-4EA94B?style=for-the-badge&logo=mongodb&logoColor=white" alt="MongoDB" height="50"/><img src="https://img.shields.io/badge/Mongoose.js-8A0403?style=for-the-badge&logoColor=white" alt="Mongoose" height="50"/><img src="https://img.shields.io/badge/EJS-B4CA65?style=for-the-badge&logo=ejs&logoColor=black" alt="EJS" height="50"/><img src="https://img.shields.io/badge/Leaflet-199900?style=for-the-badge&logo=leaflet&logoColor=white" alt="Leaflet" height="50"/>
@@ -33,7 +35,8 @@ This application is free to use, and the information available here could offer 
 ### Full Breakdown
 
 #### What riders can do
-* **Home:** the newest news releases from the Hawaiʻi Department of Transportation (HDOT), and its latest posts on X. Tap a release to read it on HDOT's site.
+* **Home:** your last three stops with their next bus, then the newest news releases from the Hawaiʻi Department of Transportation (HDOT) and its latest posts on X. Tap a stop for its live arrivals, or a release to read it on HDOT's site. **Clear recent stops** forgets them.
+* **Add to Home Screen:** in Safari, Share → Add to Home Screen gives Wea Da Bus its own icon, and it opens full screen like an app.
 * **Nearby:** a map of Oʻahu. Tap **Show stops near me** to list the closest stops. The app asks for your location only when you tap. Zoom in to street level to see every stop as a pin, and tap any stop for its live arrivals.
 * **Routes:** all 118 routes, listed as Skyline first, then letter routes, then number routes, with a filter box. Each route opens a map that shows:
   * both directions in their own colors, solid for the direction you pick and dotted for the trip back, with light dashes that flow in the direction the buses travel
@@ -65,7 +68,7 @@ config/                 MongoDB connection
 controller/             Page and API handlers
 model/                  Mongoose models: Stop, Route, RoutePattern, FeedImport, NewsArticle, XPost
 routes/                 URL routing
-middleware/             Input validation and rate limits
+middleware/             Input validation, rate limits, and the recent stops cookie
 services/theBus.js      The only code that calls TheBus's API
 scripts/importGtfs.js   Loads TheBus's GTFS schedule into MongoDB (a daily Railway cron job)
 scripts/fetchNews.js    Saves HDOT's newest news and X posts for the home page (a Railway cron job)
