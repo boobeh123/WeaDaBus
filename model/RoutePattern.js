@@ -13,6 +13,9 @@ const RoutePatternSchema = new mongoose.Schema({
     type: { type: String, enum: ['LineString'], required: true },
     coordinates: { type: [[Number]], required: true }, // [[longitude, latitude], ...]
   },
+  // The same line with fewer points, within 20 m of it, for the on-time job's position checks.
+  // That job reads every running route's line on each run; route maps never load this copy.
+  checkPath: { type: [[Number]], default: [] }, // [[longitude, latitude], ...]
   stopIds: { type: [Number], default: [] }, // Stops in the order the bus reaches them
   tripCount: { type: Number, required: true },
   // Every GTFS trip on this pattern. A live bus's <trip> is one of these, which gives its direction.
