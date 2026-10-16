@@ -3,10 +3,12 @@ const mongoose = require('mongoose');
 // How on time one route's buses ran in one hour, built by scripts/trackReliability.js from
 // TheBus's vehicle feed for the on-time tracker. Each reading is one bus at one moment, so the
 // counts say how often the route's buses were running on time, not how many trips arrived on
-// time. The readings themselves aren't kept, only these totals.
+// time. The readings themselves aren't kept, only these totals. Only buses clearly driving their
+// trip are counted (the position checks in that script). Hours from before those checks went live
+// (WeaDaBus PR #2) count every bus, including parked and stale readings, so the page skips them.
 const ReliabilityHourSchema = new mongoose.Schema({
   routeName: { type: String, required: true }, // The vehicle feed's name, the same as Route.shortName: '42', 'A LINE'
-  direction: { type: Number, default: null }, // 0 or 1 from the bus's trip; null when the trip isn't in our GTFS copy
+  direction: { type: Number, default: null }, // 0 or 1 from the bus's trip; null only in hours from before the position checks
   hourStart: { type: Date, required: true }, // Hawaii is UTC-10 all year, so UTC hours are Hawaii hours too
   readings: { type: Number, default: 0 },
   onTime: { type: Number, default: 0 }, // From 1 minute early to 5 minutes late
