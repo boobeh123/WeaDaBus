@@ -59,7 +59,7 @@ This application is free to use, and the information available here could offer 
 #### What's next
 * Search by stop name and route, not just stop number
 * Accounts, so riders can save their usual stops
-* An on-time tracker showing how reliably each route runs. It's already collecting data: every 5 minutes, a job records how early or late each bus is running.
+* An on-time tracker showing how reliably each route runs. Since October 2026, a job checks the buses every 5 minutes and records how early or late each one is running, counting only buses that are clearly driving their route.
 
 #### Project structure
 ```

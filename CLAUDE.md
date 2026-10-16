@@ -8,10 +8,11 @@ Wea Da Bus is a mobile-first web app that shows live arrival times from TheBus (
 
 - `npm run dev` runs the server with `node --watch` on http://localhost:3000. `npm start` runs it without watching.
 - `npm run import:gtfs` imports TheBus's GTFS schedule into the `stops`, `routes`, and `routepatterns` collections, but only when TheBus has posted a new one, and not before the day it starts. On Railway it runs as its own cron service every day (see The import). `npm run import:gtfs -- --force` imports right away. The script prints the feed's dates.
-- `npm run track:reliability` adds one reading of every running bus to the on-time tracker's hourly totals. On Railway it runs as its own cron service every 5 minutes (see On-time tracker).
+- `npm run track:reliability` looks at every running bus twice, 90 seconds apart, and adds the ones clearly driving their trip to the on-time tracker's hourly totals. `npm run track:reliability -- --dry-run` prints what it would count and saves nothing. On Railway it runs as its own cron service every 5 minutes (see On-time tracker).
 - `npm run fetch:news` saves HDOT's newest news releases and @DOTHawaii's newest posts on X for the Home tab. On Railway it runs as its own cron service every 15 minutes (see News).
 - `.env` needs `WEBSERVICESKEY` (the TheBus API key) and `DB_STRING` (MongoDB). The server exits at startup if either is missing or the database connection fails. `SITE_URL` is optional (see Page metadata). `X_BEARER_TOKEN` (the X API) is used only by the news job. `.env.example` lists every variable.
 - There is no build step, linter, or test suite.
+- **Railway:** every service deploys from this repo. A job's command goes in its Start Command, and its Build Command stays empty, because a command there runs only during builds. Until Oct 14 2026 the reliability and GTFS jobs had their commands in Build Command, so every scheduled run started the web server (`npm start`) instead.
 
 ### Build order
 
@@ -27,7 +28,7 @@ Features are built one at a time, in this order:
    - 2e. The Home tab (`/`), built before 2d: HDOT's news releases and @DOTHawaii's posts on X. The Nearby map moved to `/nearby`. Done.
 3. Accounts and saved stops ("My Stops"), using Passport. The map, route browsing, and search must keep working without login.
 4. On-time reliability tracker, in two steps:
-   - 4a. The collector: a cron job reads TheBus's vehicle feed every 5 minutes and keeps hourly on-time totals for every route and direction (see On-time tracker). Done. It replaced the first idea of polling a chosen set of stops, because one vehicle-feed call covers every route.
+   - 4a. The collector: a cron job reads TheBus's vehicle feed every 5 minutes and keeps hourly on-time totals for every route and direction (see On-time tracker). Done. It replaced the first idea of polling a chosen set of stops, because one vehicle-feed call covers every route. It first ran on schedule on Oct 14 2026 (see Railway), and PR #2 made it count only buses that are clearly driving their trip.
    - 4b. The page, once there are a couple of weeks of data: on-time rates on route maps and a ranking of routes.
 
 Email and push alerts are out of scope. Sessions and Passport aren't installed until Feature 3.
@@ -134,12 +135,19 @@ At 48rem and wider, the tab bar becomes the top navigation and replaces the site
   - **Clearing.** "Clear recent stops" posts to `/recent-stops/clear`, which clears the cookie and redirects home with a 303.
   - **Headings.** The Home page's `h1` is visually hidden, so "Your recent stops" and "What's new" are both `h2`s. The news sections are `h3`s and their cards `h4`s.
 - **On-time tracker** (`scripts/trackReliability.js`, `model/ReliabilityHour.js`):
-  - **One call per run.** Each run calls `theBus.getVehicles()` once, which is 288 calls a day. That covers every running bus, already without parked or silent ones. Skyline isn't in the vehicle feed.
+  - **Two looks per run.** Each run calls `theBus.getVehicles()` twice, 90 seconds apart (576 calls a day), so a run takes about 95 seconds. Each call covers every running bus, already without parked or silent ones. Skyline isn't in the vehicle feed.
+  - **Only buses driving their trip count.** TheBus's `adherence` matches the GTFS timetable while a bus drives the trip it reports: within a minute 87.5% of the time in a test on Oct 14 2026. A bus that's parked, deadheading, waiting at the end of the line, or driving back under its old trip ID reports a frozen `0` or a stale number instead. So a bus counts only if, at the second look, it:
+    - is on the same trip it was on at the first look, and has reported since then;
+    - is within 250 m of its pattern's `checkPath`;
+    - is more than 150 m from the pattern's first and last stops, where buses wait between trips;
+    - is no more than 50 m further back along the line than at the first look. Where a line passes the same street twice, the candidate nearest the first look's spot wins.
+
+    The log line counts each skip reason. Hours from before PR #2 count every bus, so the page must start after it went live.
   - **What's on time.** A bus is on time from 1 minute early to 5 minutes late (`adherence` +1 to -5; positive is early). More than 1 minute early is early, and more than 5 minutes late is late. Readings more than 60 minutes off either way are skipped as glitches.
-  - **Direction.** It comes from the bus's trip ID, as on route maps. An aggregation `$filter`s each pattern's `tripIds` down to the running trips, so the 10 MB of trip IDs never leaves Atlas. A trip that isn't in our GTFS copy is counted with `direction: null`.
+  - **Direction.** It comes from the bus's trip ID, as on route maps. One aggregation returns each running trip's direction, `checkPath`, and end stops, and `$filter`s `tripIds` down to the running trips, so the 10 MB of trip IDs never leaves Atlas. A trip that isn't in our GTFS copy is skipped, since it can't be checked.
   - **What's stored.** Only totals, one `ReliabilityHour` document per route (`routeName`, the vehicle feed's name, same as `Route.shortName`), direction, and hour (`hourStart`, a UTC hour, which is also a Hawaii hour because Hawaii is UTC-10 all year). Each run `$inc`s the counts (`readings`, `onTime`, `early`, `late`, `totalMinutesLate`) and `$max`es `maxMinutesLate`, with a unique index on route, direction, and hour. That's roughly 100 to 200 MB a year. On Atlas's free 512 MB plan, older hours would later be folded into daily totals.
   - **What the numbers mean.** Each reading is one bus at one moment, so the totals say how often a route's buses run on time, not how many trips arrived on time. The page should word it that way, and say the data comes from TheBus's GPS reports, which can be a couple of minutes old.
-  - **Failures.** TheBus is called before anything is written, so a failed call saves nothing and exits with code 1.
+  - **Failures.** Both looks happen before anything is written, so a failed TheBus call saves nothing and exits with code 1.
   - **On Railway** it's a fourth service, `reliability-job`, from the same repo: start command `npm run track:reliability`, cron schedule `*/5 * * * *`, variables `DB_STRING`, `WEBSERVICESKEY`, and `NODE_ENV`, and no domain.
 - **Failed TheBus calls don't reach the error handler.** The stop page shows a "TheBus isn't responding" message, and the API route returns a 502 with JSON.
 - **There are no sessions yet**, so an invalid or unknown stop number re-renders the Search page (`/search`) with the message instead of flashing and redirecting.
@@ -161,7 +169,7 @@ At 48rem and wider, the tab bar becomes the top navigation and replaces the site
 - **Limits.** Each key is limited to 250,000 requests a day and is deleted after 6 months of inactivity. Bus positions update about once a minute and can be 2 or more minutes stale.
 - **Attribution.** The Terms of Use require the legend "Route and arrival data provided by permission of Oahu Transit Services, Inc" to be displayed prominently wherever the data appears. It is in the site footer. Using the marks "OTS" or "HEA" also requires the asterisk trademark notice quoted in the doc.
 - **Vehicle fields.** `route_short_name` uses GTFS short names (`A LINE`), not the arrivals names (`A`). The vehicle feed has no Skyline trains.
-- **Easy to misread.** In `vehicle:adherence`, positive means early and negative means late. It's in whole minutes: live values center on 0 and mostly run from 15 late to 2 early. `arrival:canceled` is `0` for active, `1` for canceled, and `-1` for canceled and then reinstated.
+- **Easy to misread.** In `vehicle:adherence`, positive means early and negative means late. It's in whole minutes: live values center on 0 and mostly run from 15 late to 2 early. It's only trustworthy while a bus drives the trip it reports. Parked, deadheading, end-of-line, and wrong-direction buses report a frozen `0` or a stale value (see On-time tracker). `arrival:canceled` is `0` for active, `1` for canceled, and `-1` for canceled and then reinstated.
 - **The doc's DTD schemas disagree with its field lists.** For example, the arrivals DTD lists `scheduled` and omits `stopTime`, and the routes DTD uses `routeId` and `shapeDescription` where the field list says `routeID` and `firstStop`. Trust live responses first, then the field lists.
 
 ## GTFS feed
