@@ -90,7 +90,7 @@ exports.getRouteDetails = async (req, res) => {
   }
 
   const patterns = await RoutePattern.find({ routeId: route.routeId })
-    .select('-tripIds') // Thousands of IDs the map doesn't need
+    .select('-tripIds -checkPath') // Thousands of trip IDs, and the on-time job's copy of the line
     .sort({ tripCount: -1 })
     .lean();
   const mainPatterns = [0, 1]

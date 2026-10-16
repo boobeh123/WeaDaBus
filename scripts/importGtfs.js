@@ -21,6 +21,9 @@ const GTFS_URL = 'https://www.thebus.org/transitdata/production/google_transit.z
 const GTFS_FILES = ['feed_info.txt', 'routes.txt', 'stops.txt', 'trips.txt', 'stop_times.txt', 'shapes.txt'];
 const ROUTE_MODES = { 1: 'rail', 3: 'bus' }; // GTFS route_type codes
 const CHUNK_SIZE = 64 * 1024;
+// checkPath stays within this distance of the full route line (see simplifyPath)
+const CHECK_PATH_TOLERANCE_METERS = 20;
+const METERS_PER_DEGREE = 111320;
 // A stuck download would hold up every later run, since Railway skips a run while one is going
 const DOWNLOAD_TIMEOUT_MS = 2 * 60 * 1000;
 const isForced = process.argv.includes('--force'); // npm run import:gtfs -- --force
@@ -58,6 +61,48 @@ function getHawaiiDate() {
 // "A LINE" -> "a-line", "42" -> "42", "SKYLINE" -> "skyline"
 function toSlug(name) {
   return name.trim().toLowerCase().split(' ').join('-');
+}
+
+// How far point p is from the segment between a and b, in meters
+function distanceToSegment([px, py], [ax, ay], [bx, by]) {
+  const dx = bx - ax;
+  const dy = by - ay;
+  const lengthSquared = dx * dx + dy * dy;
+  const t = lengthSquared ? Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / lengthSquared)) : 0;
+  return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
+}
+
+// A lighter copy of a route line for the on-time job, which reads the lines of every running route
+// on each run (scripts/trackReliability.js). Douglas-Peucker keeps only the points needed to stay
+// within 20 m of the full line. Distances use a flat-earth approximation, which is accurate to well
+// under a meter across Oʻahu.
+function simplifyPath(coordinates) {
+  if (coordinates.length <= 2) return coordinates;
+
+  const cosLatitude = Math.cos((coordinates[0][1] * Math.PI) / 180);
+  const points = coordinates.map(([lon, lat]) => [lon * METERS_PER_DEGREE * cosLatitude, lat * METERS_PER_DEGREE]);
+  const isKept = points.map((point, index) => index === 0 || index === points.length - 1);
+
+  // Each range keeps its farthest point when that point strays past the tolerance, then splits there
+  const ranges = [[0, points.length - 1]];
+  while (ranges.length) {
+    const [first, last] = ranges.pop();
+    let farthest = -1;
+    let farthestDistance = CHECK_PATH_TOLERANCE_METERS;
+    for (let i = first + 1; i < last; i += 1) {
+      const distance = distanceToSegment(points[i], points[first], points[last]);
+      if (distance > farthestDistance) {
+        farthest = i;
+        farthestDistance = distance;
+      }
+    }
+    if (farthest !== -1) {
+      isKept[farthest] = true;
+      ranges.push([first, farthest], [farthest, last]);
+    }
+  }
+
+  return coordinates.filter((point, index) => isKept[index]);
 }
 
 // Downloads the schedule file, unless it hasn't changed since the last import. Sent the version
@@ -335,6 +380,7 @@ async function importGtfs() {
       getMostCommonHeadsign(pattern.headsignCounts) || Route.getDisplayName(routes.get(pattern.routeId)),
     shapeId: pattern.shapeId,
     path: { type: 'LineString', coordinates: paths.get(pattern.shapeId) },
+    checkPath: simplifyPath(paths.get(pattern.shapeId)),
     stopIds: stopsByLongestTrip
       .get(pattern.longestTripId)
       .sort((a, b) => a.sequence - b.sequence)

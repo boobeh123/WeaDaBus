@@ -50,7 +50,7 @@ At 48rem and wider, the tab bar becomes the top navigation and replaces the site
     - `shortName` is what riders see, and it is also how live vehicles name the route (`A LINE`).
     - `apiName` is how the arrivals endpoint names it (`A`).
     - The statics `Route.getDisplayName` and `Route.compareNames` give the display name and sort route names in rider order.
-  - `RoutePattern`: one per route + direction + shape. It holds the `path` LineString drawn on the map, the ordered `stopIds`, a `tripCount`, and every GTFS `tripIds` on it. A live bus's `<trip>` matches one of those IDs, which gives its direction.
+  - `RoutePattern`: one per route + direction + shape. It holds the `path` LineString drawn on the map, the ordered `stopIds`, a `tripCount`, and every GTFS `tripIds` on it. A live bus's `<trip>` matches one of those IDs, which gives its direction. `checkPath` is the same line with fewer points (Douglas-Peucker, within 20 m), for the on-time job's position checks; `GET /api/routes/:slug` leaves it out.
   - `FeedImport`: one document describing the schedule now imported: the file's `etag` and `lastModified`, plus the feed's version and dates.
 - **The import** parses everything in memory (two streaming passes over the 74 MB `stop_times.txt`, about 700 MB at peak) before touching the database. `scripts/` is an addition to the standard MVC layout.
   - **It skips unchanged schedules.** It sends the saved `etag` and `lastModified` as `If-None-Match` and `If-Modified-Since`, and TheBus answers `304 Not Modified` with no download.
