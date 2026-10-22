@@ -11,7 +11,12 @@ Wea Da Bus is a mobile-first web app that shows live arrival times from TheBus (
 - `npm run track:reliability` looks at every running bus twice, 90 seconds apart, and adds the ones clearly driving their trip to the on-time tracker's hourly totals. `npm run track:reliability -- --dry-run` prints what it would count and saves nothing. On Railway it runs as its own cron service every 5 minutes (see On-time tracker).
 - `npm run fetch:news` saves HDOT's newest news releases and @DOTHawaii's newest posts on X for the Home tab. On Railway it runs as its own cron service every 15 minutes (see News).
 - `.env` needs `WEBSERVICESKEY` (the TheBus API key) and `DB_STRING` (MongoDB). The server exits at startup if either is missing or the database connection fails. `SITE_URL` is optional (see Page metadata). `X_BEARER_TOKEN` (the X API) is used only by the news job. `.env.example` lists every variable.
-- There is no build step, linter, or test suite.
+- There is no build step or linter. `npm test` runs Node's built-in test runner over `test/*.test.js`, with no dependencies. So far it checks the two settings below.
+- Node is pinned exactly in `engines`: 24.22.1, the Oct 21 2026 security release.
+  - Railway's builder must be Railpack, a setting in its dashboard, for all four services built from this repo. Nixpacks only honours the major version.
+  - Bump the pin for each Node security release, never back to a range. `test/requestBodies.test.js` fails on a range.
+  - The server's startup line prints the running version.
+- Both body parsers in server.js have `inflate: false`, so a compressed request body gets a 415. No browser sends one, and decompressing it reached the Brotli bug fixed in that security release.
 - **Railway:** every service deploys from this repo. A job's command goes in its Start Command, and its Build Command stays empty, because a command there runs only during builds. Until Oct 14 2026 the reliability and GTFS jobs had their commands in Build Command, so every scheduled run started the web server (`npm start`) instead.
 
 ### Build order
